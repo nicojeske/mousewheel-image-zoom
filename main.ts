@@ -93,7 +93,12 @@ export default class MouseWheelZoomPlugin extends Plugin {
      */
     private static getImageNameFromUrl(imageUri: string) {
         imageUri = decodeURI(imageUri)
-        return imageUri.match(/([\w\d\s\.]+)\?/)[1]
+        let imageName = imageUri.match(/([\w\d\s\.]+)\?/)[1];
+        // Handle linux not correctly decoding the %2F before the Filename to a \
+        if (imageName.substr(0,2) === "2F") {
+            imageName = imageName.slice(2)
+        }
+        return imageName
     }
 
     async loadSettings() {
