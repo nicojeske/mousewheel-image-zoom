@@ -1,112 +1,190 @@
-import { App, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import {App, Plugin, PluginSettingTab, Setting} from 'obsidian';
+import * as CodeMirror from "codemirror";
+import {Editor} from "codemirror";
 
-interface MyPluginSettings {
-	mySetting: string;
+interface MouseWheelZoomSettings {
+    initialSize: number;
+    keyCode: string;
+    stepSize: number;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
+    keyCode: 'AltLeft',
+    stepSize: 25,
+    initialSize: 500
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class MouseWheelZoomPlugin extends Plugin {
+    settings: MouseWheelZoomSettings;
+    editor: Editor
+    isKeyHeldDown = false
 
-	async onload() {
-		console.log('loading plugin');
+    async onload() {
+        await this.loadSettings();
 
-		await this.loadSettings();
+        this.registerCodeMirror((cm: CodeMirror.Editor) => {
+            this.editor = cm
+        });
 
-		this.addRibbonIcon('dice', 'Sample Plugin', () => {
-			new Notice('This is a notice!');
-		});
+        this.registerDomEvent(document, "keydown", (evt: KeyboardEvent) => {
+            if (evt.code === this.settings.keyCode) {
+                this.isKeyHeldDown = true
+                this.disableScroll()
+            }
+        })
 
-		this.addStatusBarItem().setText('Status Bar Text');
+        this.registerDomEvent(document, "keyup", (evt: KeyboardEvent) => {
+            if (evt.code === this.settings.keyCode) {
+                this.isKeyHeldDown = false
+                this.enableScroll()
+            }
+        })
 
-		this.addCommand({
-			id: 'open-sample-modal',
-			name: 'Open Sample Modal',
-			// callback: () => {
-			// 	console.log('Simple Callback');
-			// },
-			checkCallback: (checking: boolean) => {
-				let leaf = this.app.workspace.activeLeaf;
-				if (leaf) {
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-					return true;
-				}
-				return false;
-			}
-		});
+        this.registerDomEvent(document, "wheel", (evt: WheelEvent) => {
+            if (this.isKeyHeldDown) {
+                const eventTarget = evt.target as Element;
+                if (eventTarget.nodeName === "IMG") {
+                    this.handleZoom(evt, eventTarget);
+                }
+            }
+        })
 
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+        this.addSettingTab(new SampleSettingTab(this.app, this));
+    }
 
-		this.registerCodeMirror((cm: CodeMirror.Editor) => {
-			console.log('codemirror', cm);
-		});
+    /**
+     * Handles zooming with the mousewheel on an image
+     * @param evt wheel event
+     * @param eventTarget targeted image element
+     * @private
+     */
+    private handleZoom(evt: WheelEvent, eventTarget: Element) {
+        const imageName = MouseWheelZoomPlugin.getImageNameFromUrl(eventTarget.attributes.getNamedItem("src").textContent);
+        const activeFile = this.app.workspace.getActiveFile();
 
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
-		});
+        this.app.vault.read(activeFile).then(async value => {
+            const sizeMatches = value.match(new RegExp(`${imageName}\\|(\\d+)`))
 
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-	}
+            // Element already has a size entry
+            if (sizeMatches !== null) {
+                const oldSize: number = parseInt(sizeMatches[1]);
+                let newSize: number = oldSize;
+                if (evt.deltaY < 0) {
+                    newSize += this.settings.stepSize
+                } else if (evt.deltaY > 0) {
+                    newSize -= this.settings.stepSize
+                }
 
-	onunload() {
-		console.log('unloading plugin');
-	}
+                value = value.replace(`${imageName}|${oldSize}`, `${imageName}|${newSize}`)
+            } else { // Element has no size entry -> give it an inital size
+                const initialSize = this.settings.initialSize
+                value = value.replace(`${imageName}`, `${imageName}|${initialSize}`)
+            }
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-	}
+            // Save changed size
+            await this.app.vault.modify(activeFile, value)
+        })
+    }
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-}
+    /**
+     * Get the image name from a given src uri
+     * @param imageUri uri of the image
+     * @private
+     */
+    private static getImageNameFromUrl(imageUri: string) {
+        imageUri = decodeURI(imageUri)
+        return imageUri.match(/([\w\d\s\.]+)\?/)[1]
+    }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
+    async saveSettings() {
+        await this.saveData(this.settings);
+    }
 
-	onClose() {
-		let {contentEl} = this;
-		contentEl.empty();
-	}
+    // Utilities to disable and enable scrolling //
+
+    preventDefault(e: any) {
+        e.preventDefault();
+    }
+
+    wheelOpt = {passive: false}
+    wheelEvent = 'wheel'
+
+    /**
+     * Disables the normal scroll event
+     */
+    disableScroll() {
+        window.addEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt);
+    }
+
+    /**
+     * Enables the normal scroll event
+     */
+    enableScroll() {
+        window.removeEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt as any);
+    }
+
 }
 
 class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+    plugin: MouseWheelZoomPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
+    constructor(app: App, plugin: MouseWheelZoomPlugin) {
+        super(app, plugin);
+        this.plugin = plugin;
+    }
 
-	display(): void {
-		let {containerEl} = this;
+    display(): void {
+        let {containerEl} = this;
 
-		containerEl.empty();
+        containerEl.empty();
 
-		containerEl.createEl('h2', {text: 'Settings for my awesome plugin.'});
+        containerEl.createEl('h2', {text: 'Settings for mousewheel zoom'});
 
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					console.log('Secret: ' + value);
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
+
+        new Setting(containerEl)
+            .setName('Trigger Key')
+            .setDesc('Key that needs to be pressed down for mousewheel zoom to work. Find the keycode by visiting' +
+                ' https://keycode.info and copy the event.code')
+            .addText(text => text
+                .setPlaceholder('keycode')
+                .setValue(this.plugin.settings.keyCode)
+                .onChange(async (value) => {
+                    this.plugin.settings.keyCode = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        new Setting(containerEl)
+            .setName('Step size')
+            .setDesc('Step value by which the size of the image should be increased/decreased')
+            .addSlider(slider => {
+                slider
+                    .setValue(25)
+                    .setLimits(0, 100, 1)
+                    .setDynamicTooltip()
+                    .setValue(this.plugin.settings.stepSize)
+                    .onChange(async (value) => {
+                        this.plugin.settings.stepSize = value
+                        await this.plugin.saveSettings()
+                    })
+            })
+
+        new Setting(containerEl)
+            .setName('Initial Size')
+            .setDesc('Initial image size if no size was defined beforehand')
+            .addSlider(slider => {
+                slider
+                    .setValue(500)
+                    .setLimits(0, 1000, 25)
+                    .setDynamicTooltip()
+                    .setValue(this.plugin.settings.stepSize)
+                    .onChange(async (value) => {
+                        this.plugin.settings.initialSize = value
+                        await this.plugin.saveSettings()
+                    })
+            })
+    }
 }
