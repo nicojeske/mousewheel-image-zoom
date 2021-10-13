@@ -63,10 +63,17 @@ export default class MouseWheelZoomPlugin extends Plugin {
         const activeFile = this.app.workspace.getActiveFile();
 
         this.app.vault.read(activeFile).then(async value => {
-            const sizeMatches = value.match(new RegExp(`${imageName}\\|(\\d+)`))
+            const isInTable = MouseWheelZoomPlugin.isInTable(imageName,value)
+            // Separator to use for the replacement
+            const sizeSeparator = isInTable ? "\\|" : "|"
+            // Separator to use for the regex: isInTable ? \\\| : \|
+            const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
+
+            const sizeMatches = value.match(new RegExp(`${imageName}${regexSeparator}(\\d+)`))
 
             // Element already has a size entry
             if (sizeMatches !== null) {
+                console.log("Size")
                 const oldSize: number = parseInt(sizeMatches[1]);
                 let newSize: number = oldSize;
                 if (evt.deltaY < 0) {
@@ -75,16 +82,27 @@ export default class MouseWheelZoomPlugin extends Plugin {
                     newSize -= this.settings.stepSize
                 }
 
-                value = value.replace(`${imageName}|${oldSize}`, `${imageName}|${newSize}`)
-            } else { // Element has no size entry -> give it an inital size
+                value = value.replace(`${imageName}${sizeSeparator}${oldSize}`, `${imageName}${sizeSeparator}${newSize}`)
+            } else { // Element has no size entry -> give it an initial size
                 const initialSize = this.settings.initialSize
-                value = value.replace(`${imageName}`, `${imageName}|${initialSize}`)
+                value = value.replace(`${imageName}`, `${imageName}${sizeSeparator}${initialSize}`)
             }
 
             // Save changed size
             await this.app.vault.modify(activeFile, value)
         })
     }
+
+    /**
+     * For a given file content decide if a string is inside a table
+     * @param searchString string
+     * @param fileValue file content
+     * @private
+     */
+    private static isInTable(searchString: string, fileValue: string) {
+        return fileValue.search(new RegExp(`^\\|.+${searchString}.+\\|$`, "m")) !== -1
+    }
+
 
     /**
      * Get the image name from a given src uri
