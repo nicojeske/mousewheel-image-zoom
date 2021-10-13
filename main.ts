@@ -50,7 +50,10 @@ export default class MouseWheelZoomPlugin extends Plugin {
         })
 
         this.addSettingTab(new SampleSettingTab(this.app, this));
+
+        console.log("Loaded: Mousewheel image zoom")
     }
+
 
     /**
      * Handles zooming with the mousewheel on an image
@@ -73,7 +76,6 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
             // Element already has a size entry
             if (sizeMatches !== null) {
-                console.log("Size")
                 const oldSize: number = parseInt(sizeMatches[1]);
                 let newSize: number = oldSize;
                 if (evt.deltaY < 0) {
