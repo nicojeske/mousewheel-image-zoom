@@ -7,9 +7,9 @@ interface MouseWheelZoomSettings {
 }
 
 enum ModifierKey {
-    ALT,
-    CTRL,
-    SHIFT
+    ALT = "AltLeft",
+    CTRL = "ControlLeft",
+    SHIFT = "ShiftLeft"
 }
 
 const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
@@ -20,20 +20,31 @@ const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
 
 export default class MouseWheelZoomPlugin extends Plugin {
     settings: MouseWheelZoomSettings;
+    isKeyHeldDown = false;
 
     async onload() {
         await this.loadSettings();
 
+        this.registerDomEvent(document, "keydown", (evt: KeyboardEvent) => {
+            if (evt.code === this.settings.modifierKey.toString()) {
+                this.isKeyHeldDown = true
+                this.disableScroll()
+            }
+        })
+
+        this.registerDomEvent(document, "keyup", (evt: KeyboardEvent) => {
+            if (evt.code === this.settings.modifierKey.toString()) {
+                this.isKeyHeldDown = false
+                this.enableScroll()
+            }
+        })
+
         this.registerDomEvent(document, "wheel", (evt: WheelEvent) => {
-            if (this.settingsKeyHoldDown(evt)) {
+            if (this.isKeyHeldDown) {
                 const eventTarget = evt.target as Element;
                 if (eventTarget.nodeName === "IMG") {
-                    // Temporarily disable normal scrolling
-                    this.disableScroll()
                     // Handle the zooming of the image
                     this.handleZoom(evt, eventTarget);
-                    // Re-enable normal scrolling
-                    this.enableScroll()
                 }
             }
         })
@@ -86,22 +97,6 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
         // Save changed size
         await this.app.vault.modify(activeFile, fileText)
-    }
-
-    /**
-     * Check if the key, set in the settings is currently pressed, when the wheel event occured
-     * @param evt Wheelevent
-     * @private
-     */
-    private settingsKeyHoldDown(evt: WheelEvent): boolean {
-        switch (this.settings.modifierKey) {
-            case ModifierKey.CTRL:
-                return evt.ctrlKey;
-            case ModifierKey.ALT:
-                return evt.altKey;
-            case ModifierKey.SHIFT:
-                return evt.shiftKey;
-        }
     }
 
     /**
@@ -183,12 +178,12 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
             .setName('Trigger Key')
             .setDesc('Key that needs to be pressed down for mousewheel zoom to work.')
             .addDropdown(dropdown => dropdown
-                .addOption(ModifierKey[ModifierKey.CTRL], "Ctrl")
-                .addOption(ModifierKey[ModifierKey.ALT], "Alt")
-                .addOption(ModifierKey[ModifierKey.SHIFT], "Shift")
-                .setValue(ModifierKey[this.plugin.settings.modifierKey])
+                .addOption(ModifierKey.CTRL, "Ctrl")
+                .addOption(ModifierKey.ALT, "Alt")
+                .addOption(ModifierKey.SHIFT, "Shift")
+                .setValue(this.plugin.settings.modifierKey)
                 .onChange(async (value) => {
-                    this.plugin.settings.modifierKey = ModifierKey[value as keyof typeof ModifierKey];
+                    this.plugin.settings.modifierKey = value as ModifierKey;
                     await this.plugin.saveSettings()
                 })
             );
