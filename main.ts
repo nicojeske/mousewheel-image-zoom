@@ -1,59 +1,53 @@
 import {App, Plugin, PluginSettingTab, Setting} from 'obsidian';
-import * as CodeMirror from "codemirror";
-import {Editor} from "codemirror";
 
 interface MouseWheelZoomSettings {
     initialSize: number;
-    keyCode: string;
+    modifierKey: ModifierKey;
     stepSize: number;
 }
 
+enum ModifierKey {
+    ALT,
+    CTRL,
+    SHIFT
+}
+
 const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
-    keyCode: 'AltLeft',
+    modifierKey: ModifierKey.ALT,
     stepSize: 25,
     initialSize: 500
 }
 
 export default class MouseWheelZoomPlugin extends Plugin {
     settings: MouseWheelZoomSettings;
-    editor: Editor
-    isKeyHeldDown = false
 
     async onload() {
         await this.loadSettings();
 
-        this.registerCodeMirror((cm: CodeMirror.Editor) => {
-            this.editor = cm
-        });
-
-        this.registerDomEvent(document, "keydown", (evt: KeyboardEvent) => {
-            if (evt.code === this.settings.keyCode) {
-                this.isKeyHeldDown = true
-                this.disableScroll()
-            }
-        })
-
-        this.registerDomEvent(document, "keyup", (evt: KeyboardEvent) => {
-            if (evt.code === this.settings.keyCode) {
-                this.isKeyHeldDown = false
-                this.enableScroll()
-            }
-        })
-
         this.registerDomEvent(document, "wheel", (evt: WheelEvent) => {
-            if (this.isKeyHeldDown) {
+            if (this.settingsKeyHoldDown(evt)) {
                 const eventTarget = evt.target as Element;
                 if (eventTarget.nodeName === "IMG") {
+                    // Temporarily disable normal scrolling
+                    this.disableScroll()
+                    // Handle the zooming of the image
                     this.handleZoom(evt, eventTarget);
+                    // Re-enable normal scrolling
+                    this.enableScroll()
                 }
             }
         })
 
-        this.addSettingTab(new SampleSettingTab(this.app, this));
+        this.addSettingTab(new MouseWheelZoomSettingsTab(this.app, this));
 
         console.log("Loaded: Mousewheel image zoom")
     }
 
+
+    onunload() {
+        // Re-enable the normal scrolling behaviour when the plugin unloads
+        this.enableScroll()
+    }
 
     /**
      * Handles zooming with the mousewheel on an image
@@ -61,38 +55,53 @@ export default class MouseWheelZoomPlugin extends Plugin {
      * @param eventTarget targeted image element
      * @private
      */
-    private handleZoom(evt: WheelEvent, eventTarget: Element) {
+    private async handleZoom(evt: WheelEvent, eventTarget: Element) {
         const imageName = MouseWheelZoomPlugin.getImageNameFromUrl(eventTarget.attributes.getNamedItem("src").textContent);
         const activeFile = this.app.workspace.getActiveFile();
 
-        this.app.vault.read(activeFile).then(async value => {
-            const isInTable = MouseWheelZoomPlugin.isInTable(imageName,value)
-            // Separator to use for the replacement
-            const sizeSeparator = isInTable ? "\\|" : "|"
-            // Separator to use for the regex: isInTable ? \\\| : \|
-            const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
+        let fileText = await this.app.vault.read(activeFile)
 
-            const sizeMatches = value.match(new RegExp(`${imageName}${regexSeparator}(\\d+)`))
+        const isInTable = MouseWheelZoomPlugin.isInTable(imageName, fileText)
+        // Separator to use for the replacement
+        const sizeSeparator = isInTable ? "\\|" : "|"
+        // Separator to use for the regex: isInTable ? \\\| : \|
+        const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
+        const sizeMatches = fileText.match(new RegExp(`${imageName}${regexSeparator}(\\d+)`))
 
-            // Element already has a size entry
-            if (sizeMatches !== null) {
-                const oldSize: number = parseInt(sizeMatches[1]);
-                let newSize: number = oldSize;
-                if (evt.deltaY < 0) {
-                    newSize += this.settings.stepSize
-                } else if (evt.deltaY > 0) {
-                    newSize -= this.settings.stepSize
-                }
-
-                value = value.replace(`${imageName}${sizeSeparator}${oldSize}`, `${imageName}${sizeSeparator}${newSize}`)
-            } else { // Element has no size entry -> give it an initial size
-                const initialSize = this.settings.initialSize
-                value = value.replace(`${imageName}`, `${imageName}${sizeSeparator}${initialSize}`)
+        // Element already has a size entry
+        if (sizeMatches !== null) {
+            const oldSize: number = parseInt(sizeMatches[1]);
+            let newSize: number = oldSize;
+            if (evt.deltaY < 0) {
+                newSize += this.settings.stepSize
+            } else if (evt.deltaY > 0) {
+                newSize -= this.settings.stepSize
             }
 
-            // Save changed size
-            await this.app.vault.modify(activeFile, value)
-        })
+            fileText = fileText.replace(`${imageName}${sizeSeparator}${oldSize}`, `${imageName}${sizeSeparator}${newSize}`)
+        } else { // Element has no size entry -> give it an initial size
+            const initialSize = this.settings.initialSize
+            fileText = fileText.replace(`${imageName}`, `${imageName}${sizeSeparator}${initialSize}`)
+        }
+
+        // Save changed size
+        await this.app.vault.modify(activeFile, fileText)
+    }
+
+    /**
+     * Check if the key, set in the settings is currently pressed, when the wheel event occured
+     * @param evt Wheelevent
+     * @private
+     */
+    private settingsKeyHoldDown(evt: WheelEvent): boolean {
+        switch (this.settings.modifierKey) {
+            case ModifierKey.CTRL:
+                return evt.ctrlKey;
+            case ModifierKey.ALT:
+                return evt.altKey;
+            case ModifierKey.SHIFT:
+                return evt.shiftKey;
+        }
     }
 
     /**
@@ -115,7 +124,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
         imageUri = decodeURI(imageUri)
         let imageName = imageUri.match(/([\w\d\s\.]+)\?/)[1];
         // Handle linux not correctly decoding the %2F before the Filename to a \
-        if (imageName.substr(0,2) === "2F") {
+        if (imageName.substr(0, 2) === "2F") {
             imageName = imageName.slice(2)
         }
         return imageName
@@ -154,7 +163,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
 }
 
-class SampleSettingTab extends PluginSettingTab {
+class MouseWheelZoomSettingsTab extends PluginSettingTab {
     plugin: MouseWheelZoomPlugin;
 
     constructor(app: App, plugin: MouseWheelZoomPlugin) {
@@ -172,15 +181,17 @@ class SampleSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Trigger Key')
-            .setDesc('Key that needs to be pressed down for mousewheel zoom to work. Find the keycode by visiting' +
-                ' https://keycode.info and copy the event.code')
-            .addText(text => text
-                .setPlaceholder('keycode')
-                .setValue(this.plugin.settings.keyCode)
+            .setDesc('Key that needs to be pressed down for mousewheel zoom to work.')
+            .addDropdown(dropdown => dropdown
+                .addOption(ModifierKey[ModifierKey.CTRL], "Ctrl")
+                .addOption(ModifierKey[ModifierKey.ALT], "Alt")
+                .addOption(ModifierKey[ModifierKey.SHIFT], "Shift")
+                .setValue(ModifierKey[this.plugin.settings.modifierKey])
                 .onChange(async (value) => {
-                    this.plugin.settings.keyCode = value;
-                    await this.plugin.saveSettings();
-                }));
+                    this.plugin.settings.modifierKey = ModifierKey[value as keyof typeof ModifierKey];
+                    await this.plugin.saveSettings()
+                })
+            );
 
         new Setting(containerEl)
             .setName('Step size')
