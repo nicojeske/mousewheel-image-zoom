@@ -69,7 +69,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
     private async handleZoom(evt: WheelEvent, eventTarget: Element) {
         const imageUri = eventTarget.attributes.getNamedItem("src").textContent;
         const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
-        const activeFile: TFile = await this.getActivePaneWithImage(imageUri);
+        const activeFile: TFile = await this.getActivePaneWithImage(eventTarget);
 
         let fileText = await this.app.vault.read(activeFile)
         const originalFileText = fileText;
@@ -105,14 +105,13 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
     /**
      * Loop through all panes and get the pane that hosts a markdown file with the image to zoom
-     * @param imageUri Uri of the image
+     * @param imageElement The HTML Element of the image
      * @private
      */
-    private async getActivePaneWithImage(imageUri: string): Promise<TFile> {
+    private async getActivePaneWithImage(imageElement: Element): Promise<TFile> {
         return new Promise(((resolve, reject) => {
             this.app.workspace.iterateAllLeaves(leaf => {
-                let imageElement = leaf.view.containerEl.querySelector( `[src="${imageUri}"]`);
-                if (imageElement !== null && leaf.view instanceof MarkdownView) {
+                if (leaf.view.containerEl.contains(imageElement) && leaf.view instanceof MarkdownView) {
                     resolve(leaf.view.file);
                 }
             })
