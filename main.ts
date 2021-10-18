@@ -1,4 +1,4 @@
-import {App, Plugin, PluginSettingTab, Setting} from 'obsidian';
+import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile} from 'obsidian';
 
 interface MouseWheelZoomSettings {
     initialSize: number;
@@ -67,10 +67,12 @@ export default class MouseWheelZoomPlugin extends Plugin {
      * @private
      */
     private async handleZoom(evt: WheelEvent, eventTarget: Element) {
-        const imageName = MouseWheelZoomPlugin.getImageNameFromUrl(eventTarget.attributes.getNamedItem("src").textContent);
-        const activeFile = this.app.workspace.getActiveFile();
+        const imageUri = eventTarget.attributes.getNamedItem("src").textContent;
+        const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
+        const activeFile: TFile = await this.getActivePaneWithImage(imageUri);
 
         let fileText = await this.app.vault.read(activeFile)
+        const originalFileText = fileText;
 
         const isInTable = MouseWheelZoomPlugin.isInTable(imageName, fileText)
         // Separator to use for the replacement
@@ -85,7 +87,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
             let newSize: number = oldSize;
             if (evt.deltaY < 0) {
                 newSize += this.settings.stepSize
-            } else if (evt.deltaY > 0) {
+            } else if (evt.deltaY > 0 && newSize > this.settings.stepSize) {
                 newSize -= this.settings.stepSize
             }
 
@@ -96,7 +98,27 @@ export default class MouseWheelZoomPlugin extends Plugin {
         }
 
         // Save changed size
-        await this.app.vault.modify(activeFile, fileText)
+        if (fileText !== originalFileText) {
+            await this.app.vault.modify(activeFile, fileText)
+        }
+    }
+
+    /**
+     * Loop through all panes and get the pane that hosts a markdown file with the image to zoom
+     * @param imageUri Uri of the image
+     * @private
+     */
+    private async getActivePaneWithImage(imageUri: string): Promise<TFile> {
+        return new Promise(((resolve, reject) => {
+            this.app.workspace.iterateAllLeaves(leaf => {
+                let imageElement = leaf.view.containerEl.querySelector( `[src="${imageUri}"]`);
+                if (imageElement !== null && leaf.view instanceof MarkdownView) {
+                    resolve(leaf.view.file);
+                }
+            })
+
+            reject(new Error("No file belonging to the image found"))
+        }))
     }
 
     /**
@@ -115,7 +137,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
      * @param imageUri uri of the image
      * @private
      */
-    private static getImageNameFromUrl(imageUri: string) {
+    private static getImageNameFromUri(imageUri: string) {
         imageUri = decodeURI(imageUri)
         let imageName = imageUri.match(/([\w\d\s\.]+)\?/)[1];
         // Handle linux not correctly decoding the %2F before the Filename to a \
