@@ -6,6 +6,12 @@ interface MouseWheelZoomSettings {
     stepSize: number;
 }
 
+interface HandleZoomParams {
+    sizeMatchRegExp: RegExp;
+    replaceSizeExist: ReplaceTerm;
+    replaceSizeNotExist: ReplaceTerm;
+}
+
 enum ModifierKey {
     ALT = "AltLeft",
     CTRL = "ControlLeft",
@@ -16,6 +22,27 @@ const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
     modifierKey: ModifierKey.ALT,
     stepSize: 25,
     initialSize: 500
+}
+
+/**
+ * ReplaceTerm enables us to store the parameters for a replacement to add a new size parameter.
+ */
+class ReplaceTerm {
+    replaceFrom: (oldSize: number) => string;
+    replaceWith: (newSize: number) => string;
+
+    constructor(replaceFrom: (oldSize: number) => string, replaceWith: (newSize: number) => string) {
+        this.replaceFrom = replaceFrom;
+        this.replaceWith = replaceWith;
+    }
+
+    public getReplaceFromString(oldSize: number): string {
+        return this.replaceFrom(oldSize);
+    }
+
+    public getReplaceWithString(newSize: number): string {
+        return this.replaceWith(newSize);
+    }
 }
 
 export default class MouseWheelZoomPlugin extends Plugin {
@@ -68,18 +95,16 @@ export default class MouseWheelZoomPlugin extends Plugin {
      */
     private async handleZoom(evt: WheelEvent, eventTarget: Element) {
         const imageUri = eventTarget.attributes.getNamedItem("src").textContent;
-        const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
         const activeFile: TFile = await this.getActivePaneWithImage(eventTarget);
 
         let fileText = await this.app.vault.read(activeFile)
         const originalFileText = fileText;
 
-        const isInTable = MouseWheelZoomPlugin.isInTable(imageName, fileText)
-        // Separator to use for the replacement
-        const sizeSeparator = isInTable ? "\\|" : "|"
-        // Separator to use for the regex: isInTable ? \\\| : \|
-        const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
-        const sizeMatches = fileText.match(new RegExp(`${imageName}${regexSeparator}(\\d+)`))
+        // Get paremeters like the regex or the replacement terms based on the fact if the image is locally stored or not.
+        const zoomParams: HandleZoomParams = imageUri.includes("http") ? this.getRemoteImageZoomParams(imageUri, fileText) : this.getLocalImageZoomParams(imageUri, fileText);
+
+        // Check if there is already a size parameter for this image.
+        const sizeMatches = fileText.match(zoomParams.sizeMatchRegExp);
 
         // Element already has a size entry
         if (sizeMatches !== null) {
@@ -91,17 +116,19 @@ export default class MouseWheelZoomPlugin extends Plugin {
                 newSize -= this.settings.stepSize
             }
 
-            fileText = fileText.replace(`${imageName}${sizeSeparator}${oldSize}`, `${imageName}${sizeSeparator}${newSize}`)
+            fileText = fileText.replace(zoomParams.replaceSizeExist.getReplaceFromString(oldSize), zoomParams.replaceSizeExist.getReplaceWithString(newSize));
         } else { // Element has no size entry -> give it an initial size
             const initialSize = this.settings.initialSize
-            fileText = fileText.replace(`${imageName}`, `${imageName}${sizeSeparator}${initialSize}`)
+            fileText = fileText.replace(zoomParams.replaceSizeNotExist.getReplaceFromString(0), zoomParams.replaceSizeNotExist.getReplaceWithString(initialSize));
         }
 
         // Save changed size
         if (fileText !== originalFileText) {
             await this.app.vault.modify(activeFile, fileText)
         }
+
     }
+
 
     /**
      * Loop through all panes and get the pane that hosts a markdown file with the image to zoom
@@ -145,6 +172,71 @@ export default class MouseWheelZoomPlugin extends Plugin {
         }
         return imageName
     }
+
+    /**
+     * Get the parameters needed to handle the zoom for a remote image
+     * @param imageUri URI of the image
+     * @param fileText content of the current file
+     * @returns parameters to handle the zoom
+     */
+    private getRemoteImageZoomParams(imageUri: string, fileText: string): HandleZoomParams {
+        const isInTable = MouseWheelZoomPlugin.isInTable(imageUri, fileText)
+        // Separator to use for the replacement
+        const sizeSeparator = isInTable ? "\\|" : "|"
+        // Separator to use for the regex: isInTable ? \\\| : \|
+        const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
+
+        const sizeMatchRegExp = new RegExp(`${regexSeparator}(\\d+)]${escapeRegex("("+imageUri+")")}`);
+
+        const replaceSizeExistFrom = (oldSize: number) => `${sizeSeparator}${oldSize}](${imageUri})`;
+        const replaceSizeExistWith = (newSize: number) => `${sizeSeparator}${newSize}](${imageUri})`;
+
+        const replaceSizeNotExistsFrom = (oldSize: number) => `](${imageUri})`;
+        const replaceSizeNotExistsWith = (newSize: number) => `${sizeSeparator}${newSize}](${imageUri})`;
+
+        const replaceSizeExist = new ReplaceTerm(replaceSizeExistFrom, replaceSizeExistWith);
+        const replaceSizeNotExist = new ReplaceTerm(replaceSizeNotExistsFrom, replaceSizeNotExistsWith);
+
+        return {
+            sizeMatchRegExp: sizeMatchRegExp,
+            replaceSizeExist: replaceSizeExist,
+            replaceSizeNotExist: replaceSizeNotExist,
+        }
+    }
+
+    /**
+     * Get the parameters needed to handle the zoom for a local image
+     * @param imageUri URI of the image
+     * @param fileText content of the current file
+     * @returns parameters to handle the zoom
+     */
+    private getLocalImageZoomParams(imageUri: string, fileText: string): HandleZoomParams {
+        const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
+
+        const isInTable = MouseWheelZoomPlugin.isInTable(imageName, fileText)
+        // Separator to use for the replacement
+        const sizeSeparator = isInTable ? "\\|" : "|"
+        // Separator to use for the regex: isInTable ? \\\| : \|
+        const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
+
+        const sizeMatchRegExp = new RegExp(`${imageName}${regexSeparator}(\\d+)`);
+
+        const replaceSizeExistFrom = (oldSize: number) => `${imageName}${sizeSeparator}${oldSize}`;
+        const replaceSizeExistWith = (newSize: number) => `${imageName}${sizeSeparator}${newSize}`;
+
+        const replaceSizeNotExistsFrom = (oldSize: number) => `${imageName}`;
+        const replaceSizeNotExistsWith = (newSize: number) => `${imageName}${sizeSeparator}${newSize}`;
+
+        const replaceSizeExist = new ReplaceTerm(replaceSizeExistFrom, replaceSizeExistWith);
+        const replaceSizeNotExist = new ReplaceTerm(replaceSizeNotExistsFrom, replaceSizeNotExistsWith);
+
+        return {
+            sizeMatchRegExp: sizeMatchRegExp,
+            replaceSizeExist: replaceSizeExist,
+            replaceSizeNotExist: replaceSizeNotExist,
+        }
+    }
+
 
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -240,3 +332,14 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
             })
     }
 }
+
+/**
+ * Function to escape a string into a valid searchable string for a regex
+ * @param string string to escape
+ * @returns escaped string
+ */
+function escapeRegex(string: string) {
+    return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+
