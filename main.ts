@@ -61,13 +61,21 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
         this.registerDomEvent(document, "keyup", (evt: KeyboardEvent) => {
             if (evt.code === this.settings.modifierKey.toString()) {
-                this.isKeyHeldDown = false
-                this.enableScroll()
+                this.onConfigKeyUp();
             }
         })
 
         this.registerDomEvent(document, "wheel", (evt: WheelEvent) => {
             if (this.isKeyHeldDown) {
+
+                // When for example using Alt + Tab to switch between windows, the key is still recognized as held down.
+                // We check if the key is really held down by checking if the key is still pressed in the event when the
+                // wheel event is triggered.
+                if (!this.isConfiguredKeyDown(evt)) {
+                    this.onConfigKeyUp();
+                    return
+                }
+
                 const eventTarget = evt.target as Element;
                 if (eventTarget.nodeName === "IMG") {
                     // Handle the zooming of the image
@@ -81,6 +89,13 @@ export default class MouseWheelZoomPlugin extends Plugin {
         console.log("Loaded: Mousewheel image zoom")
     }
 
+    /**
+     * When the config key is released, we enable the scroll again and reset the key held down flag.
+     */
+    private onConfigKeyUp() {
+        this.isKeyHeldDown = false
+        this.enableScroll()
+    }
 
     onunload() {
         // Re-enable the normal scrolling behaviour when the plugin unloads
@@ -269,6 +284,16 @@ export default class MouseWheelZoomPlugin extends Plugin {
         window.removeEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt as any);
     }
 
+    private isConfiguredKeyDown(evt: WheelEvent): boolean {
+        switch (this.settings.modifierKey) {
+            case ModifierKey.ALT:
+                return evt.altKey;
+            case ModifierKey.CTRL:
+                return evt.ctrlKey;
+            case ModifierKey.SHIFT:
+                return evt.shiftKey;
+        }
+    }
 }
 
 class MouseWheelZoomSettingsTab extends PluginSettingTab {
