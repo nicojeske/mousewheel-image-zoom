@@ -110,13 +110,17 @@ export default class MouseWheelZoomPlugin extends Plugin {
      */
     private async handleZoom(evt: WheelEvent, eventTarget: Element) {
         const imageUri = eventTarget.attributes.getNamedItem("src").textContent;
+
+        const parent = eventTarget.parentElement;
+
         const activeFile: TFile = await this.getActivePaneWithImage(eventTarget);
 
         let fileText = await this.app.vault.read(activeFile)
         const originalFileText = fileText;
 
         // Get paremeters like the regex or the replacement terms based on the fact if the image is locally stored or not.
-        const zoomParams: HandleZoomParams = imageUri.includes("http") ? this.getRemoteImageZoomParams(imageUri, fileText) : this.getLocalImageZoomParams(imageUri, fileText);
+
+        const zoomParams: HandleZoomParams = this.getZoomParams(imageUri, fileText, parent);
 
         // Check if there is already a size parameter for this image.
         const sizeMatches = fileText.match(zoomParams.sizeMatchRegExp);
@@ -188,6 +192,24 @@ export default class MouseWheelZoomPlugin extends Plugin {
         return imageName
     }
 
+    private getZoomParams(imageUri: string, fileText: string, parent: Element) {
+       if (imageUri.contains("http")) {
+           return this.getRemoteImageZoomParams(imageUri, fileText)
+       } else if (imageUri.contains("app://local")) {
+           const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
+           return this.getLocalImageZoomParams(imageName, fileText)
+       } else if (parent.classList.contains("excalidraw-svg")) {
+           const src = parent.attributes.getNamedItem("src").textContent;
+           // remove ".md" from the end of the src
+           const imageName = src.substring(0, src.length - 3);
+
+           // Only get text after "/"
+           const imageNameAfterSlash = imageName.substring(imageName.lastIndexOf("/") + 1);
+           return this.getLocalImageZoomParams(imageNameAfterSlash, fileText)
+       }
+       throw new Error("Image is not zoomable")
+    }
+
     /**
      * Get the parameters needed to handle the zoom for a remote image
      * @param imageUri URI of the image
@@ -221,12 +243,11 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
     /**
      * Get the parameters needed to handle the zoom for a local image
-     * @param imageUri URI of the image
+     * @param imageName Name of the image
      * @param fileText content of the current file
      * @returns parameters to handle the zoom
      */
-    private getLocalImageZoomParams(imageUri: string, fileText: string): HandleZoomParams {
-        const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
+    private getLocalImageZoomParams(imageName: string, fileText: string): HandleZoomParams {
 
         const isInTable = MouseWheelZoomPlugin.isInTable(imageName, fileText)
         // Separator to use for the replacement
@@ -294,6 +315,8 @@ export default class MouseWheelZoomPlugin extends Plugin {
                 return evt.shiftKey;
         }
     }
+
+
 }
 
 class MouseWheelZoomSettingsTab extends PluginSettingTab {
