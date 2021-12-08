@@ -198,7 +198,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
        } else if (imageUri.contains("app://local")) {
            const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
            return this.getLocalImageZoomParams(imageName, fileText)
-       } else if (parent.classList.contains("excalidraw-svg")) {
+       } else if (parent.classList.value.match("excalidraw-svg.*")) {
            const src = parent.attributes.getNamedItem("src").textContent;
            // remove ".md" from the end of the src
            const imageName = src.substring(0, src.length - 3);
@@ -207,6 +207,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
            const imageNameAfterSlash = imageName.substring(imageName.lastIndexOf("/") + 1);
            return this.getLocalImageZoomParams(imageNameAfterSlash, fileText)
        }
+
        throw new Error("Image is not zoomable")
     }
 
@@ -248,14 +249,23 @@ export default class MouseWheelZoomPlugin extends Plugin {
      * @returns parameters to handle the zoom
      */
     private getLocalImageZoomParams(imageName: string, fileText: string): HandleZoomParams {
-
         const isInTable = MouseWheelZoomPlugin.isInTable(imageName, fileText)
         // Separator to use for the replacement
         const sizeSeparator = isInTable ? "\\|" : "|"
         // Separator to use for the regex: isInTable ? \\\| : \|
         const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
 
-        const sizeMatchRegExp = new RegExp(`${imageName}${regexSeparator}(\\d+)`);
+        // If after the imageName in filetext follows a "|" then it means that the image is already zoomed
+        const imageNamePosition = fileText.indexOf(imageName);
+
+        // Handle the case where behind the imageName there are more attributes like |ctr for ITS Theme by attaching them to the imageName
+        const regExpMatchArray = fileText.substring(imageNamePosition + imageName.length).match(/^((\|[a-zA-Z]+)+)/);
+        if (regExpMatchArray) {
+            imageName += regExpMatchArray[1];
+        }
+
+        console.log(imageName)
+        const sizeMatchRegExp = new RegExp(`${escapeRegex(imageName)}${regexSeparator}(\\d+)`);
 
         const replaceSizeExistFrom = (oldSize: number) => `${imageName}${sizeSeparator}${oldSize}`;
         const replaceSizeExistWith = (newSize: number) => `${imageName}${sizeSeparator}${newSize}`;
