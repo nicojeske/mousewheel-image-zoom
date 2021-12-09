@@ -259,12 +259,11 @@ export default class MouseWheelZoomPlugin extends Plugin {
         const imageNamePosition = fileText.indexOf(imageName);
 
         // Handle the case where behind the imageName there are more attributes like |ctr for ITS Theme by attaching them to the imageName
-        const regExpMatchArray = fileText.substring(imageNamePosition + imageName.length).match(/^((\|[a-zA-Z]+)+)/);
+        const regExpMatchArray = fileText.substring(imageNamePosition + imageName.length).match(/^((\\?\|[a-zA-Z]+)+)/);
         if (regExpMatchArray) {
             imageName += regExpMatchArray[1];
         }
 
-        console.log(imageName)
         const sizeMatchRegExp = new RegExp(`${escapeRegex(imageName)}${regexSeparator}(\\d+)`);
 
         const replaceSizeExistFrom = (oldSize: number) => `${imageName}${sizeSeparator}${oldSize}`;
