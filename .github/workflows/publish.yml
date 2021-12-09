@@ -6,7 +6,7 @@ name: PublishRelease
 on:
   push:
     tags:
-      - 'v*'
+      - '1*'
 
 jobs:
   build:
