@@ -258,10 +258,15 @@ export default class MouseWheelZoomPlugin extends Plugin {
         // If after the imageName in filetext follows a "|" then it means that the image is already zoomed
         const imageNamePosition = fileText.indexOf(imageName);
 
+        const stringAfterFileName = fileText.substring(imageNamePosition + imageName.length)
         // Handle the case where behind the imageName there are more attributes like |ctr for ITS Theme by attaching them to the imageName
-        const regExpMatchArray = fileText.substring(imageNamePosition + imageName.length).match(/^((\\?\|[a-zA-Z]+)+)/);
+        const regExpMatchArray = stringAfterFileName.match(/([^\]]*?)\\?\|\d+]]|([^\]]*?)]]|/);
         if (regExpMatchArray) {
-            imageName += regExpMatchArray[1];
+            if (!!regExpMatchArray[1]) {
+                imageName += regExpMatchArray[1]
+            } else if (!!regExpMatchArray[2]) {
+                imageName += regExpMatchArray[2]
+            }
         }
 
         const sizeMatchRegExp = new RegExp(`${escapeRegex(imageName)}${regexSeparator}(\\d+)`);
