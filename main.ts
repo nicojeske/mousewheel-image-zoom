@@ -111,7 +111,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
     private async handleZoom(evt: WheelEvent, eventTarget: Element) {
         const imageUri = eventTarget.attributes.getNamedItem("src").textContent;
 
-        const parent = eventTarget.parentElement;
+        const target = eventTarget;
 
         const activeFile: TFile = await this.getActivePaneWithImage(eventTarget);
 
@@ -120,7 +120,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
         // Get paremeters like the regex or the replacement terms based on the fact if the image is locally stored or not.
 
-        const zoomParams: HandleZoomParams = this.getZoomParams(imageUri, fileText, parent);
+        const zoomParams: HandleZoomParams = this.getZoomParams(imageUri, fileText, target);
 
         // Check if there is already a size parameter for this image.
         const sizeMatches = fileText.match(zoomParams.sizeMatchRegExp);
@@ -192,17 +192,16 @@ export default class MouseWheelZoomPlugin extends Plugin {
         return imageName
     }
 
-    private getZoomParams(imageUri: string, fileText: string, parent: Element) {
+    private getZoomParams(imageUri: string, fileText: string, target: Element) {
        if (imageUri.contains("http")) {
            return this.getRemoteImageZoomParams(imageUri, fileText)
        } else if (imageUri.contains("app://local")) {
            const imageName = MouseWheelZoomPlugin.getImageNameFromUri(imageUri);
            return this.getLocalImageZoomParams(imageName, fileText)
-       } else if (parent.classList.value.match("excalidraw-svg.*")) {
-           const src = parent.attributes.getNamedItem("src").textContent;
+       } else if (target.classList.value.match("excalidraw-svg.*")) {
+           const src = target.attributes.getNamedItem("filesource").textContent;
            // remove ".md" from the end of the src
            const imageName = src.substring(0, src.length - 3);
-
            // Only get text after "/"
            const imageNameAfterSlash = imageName.substring(imageName.lastIndexOf("/") + 1);
            return this.getLocalImageZoomParams(imageNameAfterSlash, fileText)
