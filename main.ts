@@ -1,6 +1,6 @@
 import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile} from 'obsidian';
-import { Util, ReplaceTerm, HandleZoomParams } from 'src/Util';
-
+import { Util, HandleZoomParams } from  "./src/util";
+ 
 
 interface MouseWheelZoomSettings {
     initialSize: number;
