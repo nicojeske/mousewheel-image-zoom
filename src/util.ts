@@ -63,7 +63,8 @@ export class Util {
     }
 
     /**
-     * Get the parameters needed to handle the zoom for a local image
+     * Get the parameters needed to handle the zoom for a local image.
+     * Source can be either a obsidian link like [[image.png]] or a markdown link like [image.png](image.png)
      * @param imageName Name of the image
      * @param fileText content of the current file
      * @returns parameters to handle the zoom
@@ -75,9 +76,8 @@ export class Util {
         // Separator to use for the regex: isInTable ? \\\| : \|
         const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
 
-        // If after the imageName in filetext follows a "|" then it means that the image is already zoomed
-        const imageNamePosition = fileText.indexOf(imageName);
 
+        const imageNamePosition = fileText.indexOf(imageName);
         const stringAfterFileName = fileText.substring(imageNamePosition + imageName.length)
 
         // Handle the case where behind the imageName there are more attributes like |ctr for ITS Theme by attaching them to the imageName
@@ -90,6 +90,68 @@ export class Util {
             }
         }
 
+
+        // check character before the imageName to check if markdown link or obsidian link
+        const isObsidianLink = fileText.charAt(imageNamePosition - 1) === "["
+
+        if (isObsidianLink) {
+            return Util.generateReplaceTermForObsidianSyntax(imageName, regexSeparator, sizeSeparator);
+        } else {
+            return Util.generateReplaceTermForMarkdownSyntax(imageName, regexSeparator, sizeSeparator, fileText);
+        }
+    }
+
+
+    /**
+     * Get the parameters needed to handle the zoom for images in markdown format.
+     * Example: ![image.png](image.png)
+     * @param imageName Name of the image
+     * @param fileText content of the current file
+     * @returns parameters to handle the zoom
+     * @private
+     * 
+     */
+    private static generateReplaceTermForMarkdownSyntax(imageName: string, regexSeparator: string, sizeSeparator: string, fileText: string): HandleZoomParams  {
+        // Encodes the imageName to handle special characters like spaces
+        imageName = encodeURI(imageName)
+        
+        // For local images the image can be located in a folder. In this case we need to add the folder name to the imageName
+        // We get the folder name from the string before the imageName up to the frist )
+        const imageNamePosition = fileText.indexOf(imageName);
+        const stringBeforeFileName = fileText.substring(0, imageNamePosition)
+        const lastOpeningBracket = stringBeforeFileName.lastIndexOf("(")
+        const folderName = stringBeforeFileName.substring(lastOpeningBracket + 1, imageNamePosition)
+        imageName = folderName + imageName
+        
+
+        const sizeMatchRegExp = new RegExp(`${regexSeparator}(\\d+)]${escapeRegex("(" + imageName + ")")}`);
+
+        const replaceSizeExistFrom = (oldSize: number) => `${sizeSeparator}${oldSize}](${imageName})`;
+        const replaceSizeExistWith = (newSize: number) => `${sizeSeparator}${newSize}](${imageName})`;
+
+        const replaceSizeNotExistsFrom = (oldSize: number) => `](${imageName})`;
+        const replaceSizeNotExistsWith = (newSize: number) => `${sizeSeparator}${newSize}](${imageName})`;
+
+        const replaceSizeExist = new ReplaceTerm(replaceSizeExistFrom, replaceSizeExistWith);
+        const replaceSizeNotExist = new ReplaceTerm(replaceSizeNotExistsFrom, replaceSizeNotExistsWith);
+
+        return {
+            sizeMatchRegExp: sizeMatchRegExp,
+            replaceSizeExist: replaceSizeExist,
+            replaceSizeNotExist: replaceSizeNotExist,
+        };
+    }
+
+    /**
+     * Get the parameters needed to handle the zoom for images in markdown format.
+     * Example: ![[image.png]]
+     * @param imageName Name of the image
+     * @param fileText content of the current file
+     * @returns parameters to handle the zoom
+     * @private
+     * 
+     */
+    private static generateReplaceTermForObsidianSyntax(imageName: string, regexSeparator: string, sizeSeparator: string) {
         const sizeMatchRegExp = new RegExp(`${escapeRegex(imageName)}${regexSeparator}(\\d+)`);
 
         const replaceSizeExistFrom = (oldSize: number) => `${imageName}${sizeSeparator}${oldSize}`;
@@ -105,7 +167,7 @@ export class Util {
             sizeMatchRegExp: sizeMatchRegExp,
             replaceSizeExist: replaceSizeExist,
             replaceSizeNotExist: replaceSizeNotExist,
-        }
+        };
     }
 
     /**
@@ -122,22 +184,7 @@ export class Util {
         // Separator to use for the regex: isInTable ? \\\| : \|
         const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
 
-        const sizeMatchRegExp = new RegExp(`${regexSeparator}(\\d+)]${escapeRegex("("+imageUri+")")}`);
-
-        const replaceSizeExistFrom = (oldSize: number) => `${sizeSeparator}${oldSize}](${imageUri})`;
-        const replaceSizeExistWith = (newSize: number) => `${sizeSeparator}${newSize}](${imageUri})`;
-
-        const replaceSizeNotExistsFrom = (oldSize: number) => `](${imageUri})`;
-        const replaceSizeNotExistsWith = (newSize: number) => `${sizeSeparator}${newSize}](${imageUri})`;
-
-        const replaceSizeExist = new ReplaceTerm(replaceSizeExistFrom, replaceSizeExistWith);
-        const replaceSizeNotExist = new ReplaceTerm(replaceSizeNotExistsFrom, replaceSizeNotExistsWith);
-
-        return {
-            sizeMatchRegExp: sizeMatchRegExp,
-            replaceSizeExist: replaceSizeExist,
-            replaceSizeNotExist: replaceSizeNotExist,
-        }
+        return Util.generateReplaceTermForMarkdownSyntax(imageUri, regexSeparator, sizeSeparator, fileText);
     }
 
 }

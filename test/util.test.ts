@@ -66,6 +66,7 @@ describe('Util', () => {
       const result = Util.getLocalImageZoomParams(imageName, fileText);
 
       expect(result.sizeMatchRegExp).toEqual(/example\.png\\\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
       expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("example.png");
       expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("example.png\\|200");
 
@@ -79,6 +80,7 @@ describe('Util', () => {
       const result = Util.getLocalImageZoomParams(imageName, fileText);
 
       expect(result.sizeMatchRegExp).toEqual(/example\.png\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
       expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("example.png");
       expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("example.png|200");
 
@@ -92,6 +94,7 @@ describe('Util', () => {
       const result = Util.getLocalImageZoomParams(imageName, fileText);
 
       expect(result.sizeMatchRegExp).toEqual(/example\.png\|ctr\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
       expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("example.png|ctr");
       expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("example.png|ctr|200");
 
@@ -105,6 +108,7 @@ describe('Util', () => {
       const result = Util.getLocalImageZoomParams(imageName, fileText);
 
       expect(result.sizeMatchRegExp).toEqual(/example\.png\\\|ctr\\\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
       expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("example.png\\|ctr");
       expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("example.png\\|ctr\\|200");
 
@@ -118,6 +122,7 @@ describe('Util', () => {
       const result = Util.getLocalImageZoomParams(imageName, fileText);
 
       expect(result.sizeMatchRegExp).toEqual(/example\.png\\\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
       expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("example.png\\|100");
       expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("example.png\\|200");
 
@@ -131,11 +136,156 @@ describe('Util', () => {
       const result = Util.getLocalImageZoomParams(imageName, fileText);
 
       expect(result.sizeMatchRegExp).toEqual(/example\.png\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
       expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("example.png|100");
       expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("example.png|200");
 
       const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
       expect(newFileText).toEqual("Lorem ipsum ![[example.png|200]] dolor sit amet");
+    });
+
+    test('Handle local images in markdown format (no table, no size)', () => {
+      const imageUri = 'example.png';
+      const fileText = 'This is a test file with an image: ![](' + imageUri + ')';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\|(\d+)]\(example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
+      expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("](example.png)");
+      expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("|200](example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeNotExist.getReplaceFromString(100), result.replaceSizeNotExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('This is a test file with an image: ![|200](example.png)');
+    });
+
+    test('Handle local images in markdown format (no table, with size)', () => {
+      const imageUri = 'example.png';
+      const fileText = 'This is a test file with an image: ![|100](example.png)';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\|(\d+)]\(example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
+      expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("|100](example.png)");
+      expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("|200](example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('This is a test file with an image: ![|200](example.png)');
+    });
+
+    test('Handle local images in markdown format (in table, no size)', () => {
+      const imageUri = 'example.png';
+      const fileText = '| some | table | ![](example.png) |';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual(/\\\|(\d+)]\(example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
+      expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("](example.png)");
+      expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("\\|200](example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeNotExist.getReplaceFromString(100), result.replaceSizeNotExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('| some | table | ![\\|200](example.png) |');
+    });
+
+    test('Handle local images in markdown format with alt text', () => {
+      const imageUri = 'example.png';
+      const fileText = '| some | table | ![das](example.png) |';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual(/\\\|(\d+)]\(example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
+      expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("](example.png)");
+      expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("\\|200](example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeNotExist.getReplaceFromString(100), result.replaceSizeNotExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('| some | table | ![das\\|200](example.png) |');
+    });
+
+    test('Handle local images in markdown format (in table, with size)', () => {
+      const imageUri = 'example.png';
+      const fileText = '| some | table | ![\\|100](example.png) |';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual(/\\\|(\d+)]\(example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
+      expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("\\|100](example.png)");
+      expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("\\|200](example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('| some | table | ![\\|200](example.png) |');
+    });
+
+
+
+    test('Handle local images in markdown format in folder (no table, no size)', () => {
+      const imageUri = 'example.png';
+      const fileText = 'This is a test file with an image: ![](folder/' + imageUri + ')';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\|(\d+)]\(folder\/example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
+      expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("](folder/example.png)");
+      expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("|200](folder/example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeNotExist.getReplaceFromString(100), result.replaceSizeNotExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('This is a test file with an image: ![|200](folder/example.png)');
+    });
+
+    test('Handle local images in markdown format in folder (no table, with size)', () => {
+      const imageUri = 'example.png';
+      const fileText = 'This is a test file with an image: ![|100](folder/' + imageUri + ')';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\|(\d+)]\(folder\/example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
+      expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("|100](folder/example.png)");
+      expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("|200](folder/example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('This is a test file with an image: ![|200](folder/example.png)');
+    });
+
+    test('Handle local images in markdown format in folder (in table, no size)', () => {
+      const imageUri = 'example.png';
+      const fileText = '| some | table | ![](folder/' + imageUri + ') |';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\\\|(\d+)]\(folder\/example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
+      expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("](folder/example.png)");
+      expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("\\|200](folder/example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeNotExist.getReplaceFromString(100), result.replaceSizeNotExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('| some | table | ![\\|200](folder/example.png) |');
+    });
+
+    test('Handle local images in markdown format in folder (in table, with size)', () => {
+      const imageUri = 'example.png';
+      const fileText = '| some | table | ![\\|100](folder/' + imageUri + ') |';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\\\|(\d+)]\(folder\/example\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
+      expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("\\|100](folder/example.png)");
+      expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("\\|200](folder/example.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('| some | table | ![\\|200](folder/example.png) |');
+    });
+
+
+
+    test('Handle local images in markdown format in folder (no table, with size, encoded spaces)', () => {
+      const imageUri = 'example picture.png';
+      const fileText = 'This is a test file with an image: ![|100](folder/example%20picture.png)';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\|(\d+)]\(folder\/example%20picture\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
+      expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("|100](folder/example%20picture.png)");
+      expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("|200](folder/example%20picture.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('This is a test file with an image: ![|200](folder/example%20picture.png)');
     });
   });
 
@@ -146,6 +296,7 @@ describe('Util', () => {
       const result = Util.getRemoteImageZoomParams(imageUri, fileText);
 
       expect(result.sizeMatchRegExp).toEqual(/\|(\d+)]\(https:\/\/www\.example\.com\/image\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
       expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual(`](${imageUri})`);
       expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual(`|200](${imageUri})`);
 
@@ -167,9 +318,11 @@ describe('Util', () => {
       const newFileText = fileText.replace(result.replaceSizeNotExist.getReplaceFromString(0), result.replaceSizeNotExist.getReplaceWithString(200));
       expect(newFileText).toEqual(`| This | is | a | test | file | with | an | image | ![\\|200](${imageUri}) |`);
     });
+
+    
   });
 
-  
+
 
 
 });
