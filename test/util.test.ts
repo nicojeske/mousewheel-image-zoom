@@ -57,6 +57,12 @@ describe('Util', () => {
       const uri = `app://local/C:/path/to/${encodedImageName}?67890`;
       expect(Util.getLocalImageNameFromUri(uri)).toBe(imageName);
     });
+
+    test('handles jpeg image', () => {
+      const imageName = 'B466995A-B97F-4DE2-B036-0684F84B374B.jpeg';
+      const uri = `app://local/C:/path/to/${imageName}?12345`;
+      expect(Util.getLocalImageNameFromUri(uri)).toBe(imageName);
+    });
   });
 
   describe("Util.getLocalImageZoomParams", () => {
