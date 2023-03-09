@@ -1,3 +1,4 @@
+import { encode } from "querystring";
 
 
 /**
@@ -70,6 +71,13 @@ export class Util {
      * @returns parameters to handle the zoom
      */
     public static getLocalImageZoomParams(imageName: string, fileText: string): HandleZoomParams {
+        
+        // need to first check if markdown or obsidian link
+        let imageNamePos = fileText.indexOf(imageName);
+        if (imageNamePos === -1) { // if not found, try to encode the imageName
+            imageName = encodeURI(imageName)
+        }
+
         const isInTable = Util.isInTable(imageName, fileText)
         // Separator to use for the replacement
         const sizeSeparator = isInTable ? "\\|" : "|"
@@ -77,7 +85,19 @@ export class Util {
         const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
 
 
-        const imageNamePosition = fileText.indexOf(imageName);
+        // For local images the image can be located in a folder. In this case we need to add the folder name to the imageName
+        // We get the folder name from the string before the imageName up to the first "[" for obsidian links or the first "(" for markdown links 
+        // what ever comes first
+        let imageNamePosition = fileText.indexOf(imageName);
+        const stringBeforeFileName = fileText.substring(0, imageNamePosition)
+        const lastOpeningBracket = stringBeforeFileName.lastIndexOf("[")
+        const lastOpeningParenthesis = stringBeforeFileName.lastIndexOf("(")
+        const folderName = stringBeforeFileName.substring(Math.max(lastOpeningBracket, lastOpeningParenthesis) + 1)
+        
+        imageName = folderName + imageName
+
+        imageNamePosition = fileText.indexOf(imageName);
+
         const stringAfterFileName = fileText.substring(imageNamePosition + imageName.length)
 
         // Handle the case where behind the imageName there are more attributes like |ctr for ITS Theme by attaching them to the imageName
@@ -89,7 +109,6 @@ export class Util {
                 imageName += regExpMatchArray[2]
             }
         }
-
 
         // check character before the imageName to check if markdown link or obsidian link
         const isObsidianLink = fileText.charAt(imageNamePosition - 1) === "["
@@ -111,18 +130,7 @@ export class Util {
      * @private
      * 
      */
-    private static generateReplaceTermForMarkdownSyntax(imageName: string, regexSeparator: string, sizeSeparator: string, fileText: string): HandleZoomParams  {
-        // Encodes the imageName to handle special characters like spaces
-        imageName = encodeURI(imageName)
-        
-        // For local images the image can be located in a folder. In this case we need to add the folder name to the imageName
-        // We get the folder name from the string before the imageName up to the frist )
-        const imageNamePosition = fileText.indexOf(imageName);
-        const stringBeforeFileName = fileText.substring(0, imageNamePosition)
-        const lastOpeningBracket = stringBeforeFileName.lastIndexOf("(")
-        const folderName = stringBeforeFileName.substring(lastOpeningBracket + 1, imageNamePosition)
-        imageName = folderName + imageName
-        
+    private static generateReplaceTermForMarkdownSyntax(imageName: string, regexSeparator: string, sizeSeparator: string, fileText: string): HandleZoomParams {
 
         const sizeMatchRegExp = new RegExp(`${regexSeparator}(\\d+)]${escapeRegex("(" + imageName + ")")}`);
 

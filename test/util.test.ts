@@ -63,6 +63,8 @@ describe('Util', () => {
       const uri = `app://local/C:/path/to/${imageName}?12345`;
       expect(Util.getLocalImageNameFromUri(uri)).toBe(imageName);
     });
+
+
   });
 
   describe("Util.getLocalImageZoomParams", () => {
@@ -150,6 +152,30 @@ describe('Util', () => {
       expect(newFileText).toEqual("Lorem ipsum ![[example.png|200]] dolor sit amet");
     });
 
+
+    test('Handle local images in obsidian format in folder', () => {
+      const imageUri = 'example.png';
+      const fileText = 'This is a test file with an image: ![[folder/' + imageUri + ']]';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual(/folder\/example\.png\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
+      expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("folder/example.png");
+      expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("folder/example.png|200");
+    });
+
+    test('Handle local images in obsidian format in folder (in table)', () => {
+      const imageUri = 'example image.png';
+      const fileText = '| some | table | ![[folder/' + imageUri + ']] |';
+
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+      expect(result.sizeMatchRegExp).toEqual(/folder\/example image\.png\\\|(\d+)/);
+      expect(fileText.match(result.sizeMatchRegExp)).toEqual(null);
+      expect(result.replaceSizeNotExist.getReplaceFromString(100)).toEqual("folder/example image.png");
+      expect(result.replaceSizeNotExist.getReplaceWithString(200)).toEqual("folder/example image.png\\|200");
+    });
+
+
     test('Handle local images in markdown format (no table, no size)', () => {
       const imageUri = 'example.png';
       const fileText = 'This is a test file with an image: ![](' + imageUri + ')';
@@ -220,6 +246,7 @@ describe('Util', () => {
       expect(newFileText).toEqual('| some | table | ![\\|200](example.png) |');
     });
 
+    
 
 
     test('Handle local images in markdown format in folder (no table, no size)', () => {
