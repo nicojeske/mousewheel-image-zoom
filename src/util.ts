@@ -63,6 +63,7 @@ export class Util {
         return hasLinuxDecodingIssue ? imageName.slice(2) : imageName;
     }
 
+
     /**
      * Get the parameters needed to handle the zoom for a local image.
      * Source can be either a obsidian link like [[image.png]] or a markdown link like [image.png](image.png)
@@ -71,12 +72,12 @@ export class Util {
      * @returns parameters to handle the zoom
      */
     public static getLocalImageZoomParams(imageName: string, fileText: string): HandleZoomParams {
-        
-        // need to first check if markdown or obsidian link
-        let imageNamePos = fileText.indexOf(imageName);
-        if (imageNamePos === -1) { // if not found, try to encode the imageName
-            imageName = encodeURI(imageName)
-        }
+        imageName = this.determineImageName(imageName, fileText);
+
+        // Get the folder name if the image is located in a folder
+        const folderName = this.getFolderNameIfExist(imageName, fileText);
+        imageName = `${folderName}${imageName}`;
+
 
         const isInTable = Util.isInTable(imageName, fileText)
         // Separator to use for the replacement
@@ -85,32 +86,12 @@ export class Util {
         const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
 
 
-        // For local images the image can be located in a folder. In this case we need to add the folder name to the imageName
-        // We get the folder name from the string before the imageName up to the first "[" for obsidian links or the first "(" for markdown links 
-        // what ever comes first
-        let imageNamePosition = fileText.indexOf(imageName);
-        const stringBeforeFileName = fileText.substring(0, imageNamePosition)
-        const lastOpeningBracket = stringBeforeFileName.lastIndexOf("[")
-        const lastOpeningParenthesis = stringBeforeFileName.lastIndexOf("(")
-        const folderName = stringBeforeFileName.substring(Math.max(lastOpeningBracket, lastOpeningParenthesis) + 1)
-        
-        imageName = folderName + imageName
 
-        imageNamePosition = fileText.indexOf(imageName);
-
-        const stringAfterFileName = fileText.substring(imageNamePosition + imageName.length)
-
-        // Handle the case where behind the imageName there are more attributes like |ctr for ITS Theme by attaching them to the imageName
-        const regExpMatchArray = stringAfterFileName.match(/([^\]]*?)\\?\|\d+]]|([^\]]*?)]]|/);
-        if (regExpMatchArray) {
-            if (!!regExpMatchArray[1]) {
-                imageName += regExpMatchArray[1]
-            } else if (!!regExpMatchArray[2]) {
-                imageName += regExpMatchArray[2]
-            }
-        }
+        const imageAttributes = this.getImageAttributes(imageName, fileText);
+        imageName = `${imageName}${imageAttributes}`;
 
         // check character before the imageName to check if markdown link or obsidian link
+        const imageNamePosition = fileText.indexOf(imageName);
         const isObsidianLink = fileText.charAt(imageNamePosition - 1) === "["
 
         if (isObsidianLink) {
@@ -120,6 +101,72 @@ export class Util {
         }
     }
 
+    /**
+ * When using markdown link syntax the image name can be encoded. This function checks if the image name is encoded and if not encodes it.
+ * 
+ * @param imageName Image name
+ * @param fileText File content
+ * @returns image name with the correct encoding
+ */
+    private static determineImageName(imageName: string, fileText: string): string {
+        let imageNamePos = fileText.indexOf(imageName);
+
+        if (imageNamePos === -1) { // if not found, try to encode the imageName
+            imageName = encodeURI(imageName)
+        }
+
+        // check if now the imageName is found
+        imageNamePos = fileText.indexOf(imageName);
+        if (imageNamePos === -1) throw new Error("Image not found in file");
+
+        return imageName;
+    }
+
+    /**
+    * Extracts the folder name from the given image name by looking for the first "[" or "(" character
+    * that appears before the image name in the file text.
+    * @param imageName The name of the image.
+    * @param fileText The text of the file that contains the image.    
+    * @returns The name of the folder that contains the image, or an empty string if no folder is found.
+    */
+    private static getFolderNameIfExist(imageName: string, fileText: string): string {
+        const index = fileText.indexOf(imageName);
+
+        if (index === -1) {
+            throw new Error("Image not found in file");
+        }
+
+        const stringBeforeFileName = fileText.substring(0, index);
+
+        const lastOpeningBracket = stringBeforeFileName.lastIndexOf("["); // Obsidian link
+        const lastOpeningParenthesis = stringBeforeFileName.lastIndexOf("("); // Markdown link
+        const lastOpeningBracketOrParenthesis = Math.max(lastOpeningBracket, lastOpeningParenthesis);
+        const folderName = stringBeforeFileName.substring(lastOpeningBracketOrParenthesis + 1);
+
+        return folderName;
+    }
+
+    /**
+* Extracts any image attributes like |ctr for ITS Theme that appear after the given image name in the file.    
+* @param imageName - The name of the image to search for.
+* @param fileText - The content of the file to search in.
+* @returns A string containing any image attributes that appear after the image name.
+*/
+    private static getImageAttributes(imageName: string, fileText: string): string {
+        const index = fileText.indexOf(imageName);
+        const stringAfterFileName = fileText.substring(index + imageName.length);
+        const regExpMatchArray = stringAfterFileName.match(/([^\]]*?)\\?\|\d+]]|([^\]]*?)]]|/);
+
+        if (regExpMatchArray) {
+            if (!!regExpMatchArray[1]) {
+                return regExpMatchArray[1];
+            } else if (!!regExpMatchArray[2]) {
+                return regExpMatchArray[2];
+            }
+        }
+
+        return "";
+    }
 
     /**
      * Get the parameters needed to handle the zoom for images in markdown format.
