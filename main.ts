@@ -110,7 +110,11 @@ export default class MouseWheelZoomPlugin extends Plugin {
             fileText = fileText.replace(zoomParams.replaceSizeExist.getReplaceFromString(oldSize), zoomParams.replaceSizeExist.getReplaceWithString(newSize));
         } else { // Element has no size entry -> give it an initial size
             const initialSize = this.settings.initialSize
-            fileText = fileText.replace(zoomParams.replaceSizeNotExist.getReplaceFromString(0), zoomParams.replaceSizeNotExist.getReplaceWithString(initialSize));
+            var image = new Image();
+            image.src = imageUri;
+            var width = image.naturalWidth;
+            var minWidth = Math.min(width, initialSize);
+            fileText = fileText.replace(zoomParams.replaceSizeNotExist.getReplaceFromString(0), zoomParams.replaceSizeNotExist.getReplaceWithString(minWidth));
         }
 
         // Save changed size
