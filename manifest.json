@@ -1,7 +1,7 @@
 {
   "id": "mousewheel-image-zoom",
   "name": "Mousewheel Image zoom",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "minAppVersion": "0.9.12",
   "description": "This plugin enables you to increase/decrease the size of an image by scrolling",
   "author": "Nico Jeske",
