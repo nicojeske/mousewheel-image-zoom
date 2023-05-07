@@ -146,7 +146,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
     private getZoomParams(imageUri: string, fileText: string, target: Element) {
        if (imageUri.contains("http")) {
            return Util.getRemoteImageZoomParams(imageUri, fileText)
-       } else if (imageUri.contains("app://local")) {
+       } else if (imageUri.contains("app://")) {
            const imageName = Util.getLocalImageNameFromUri(imageUri);
            return Util.getLocalImageZoomParams(imageName, fileText)
        } else if (target.classList.value.match("excalidraw-svg.*")) {
