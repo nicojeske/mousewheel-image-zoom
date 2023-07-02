@@ -102,25 +102,28 @@ export class Util {
     }
 
     /**
- * When using markdown link syntax the image name can be encoded. This function checks if the image name is encoded and if not encodes it.
- * 
- * @param imageName Image name
- * @param fileText File content
- * @returns image name with the correct encoding
- */
-    private static determineImageName(imageName: string, fileText: string): string {
-        let imageNamePos = fileText.indexOf(imageName);
+     * When using markdown link syntax the image name can be encoded. This function checks if the image name is encoded and if not encodes it.
+     * 
+     * @param origImageName Image name
+     * @param fileText File content
+     * @returns image name with the correct encoding
+     */
+    private static determineImageName(origImageName: string, fileText: string): string {
+        const encodedImageName = encodeURI(origImageName);
+        const spaceEncodedImageName = origImageName.replace(/ /g, "%20");
 
-        if (imageNamePos === -1) { // if not found, try to encode the imageName
-            imageName = encodeURI(imageName)
+        // Try matching original, full URI encoded, and space encoded
+        const imageNameVariants = [origImageName, encodedImageName, spaceEncodedImageName];
+
+        for (const variant of imageNameVariants) {
+            if (fileText.includes(variant)) {
+                return variant;
+            }
         }
 
-        // check if now the imageName is found
-        imageNamePos = fileText.indexOf(imageName);
-        if (imageNamePos === -1) throw new Error("Image not found in file");
-
-        return imageName;
+        throw new Error("Image not found in file");
     }
+
 
     /**
     * Extracts the folder name from the given image name by looking for the first "[" or "(" character

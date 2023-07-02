@@ -320,6 +320,20 @@ describe('Util', () => {
       const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
       expect(newFileText).toEqual('This is a test file with an image: ![|200](folder/example%20picture.png)');
     });
+
+    test('Handle local images in markdown format in folder (no table, with size, encoded spaces, chinese characters)', () => {
+      const imageUri = '中 文.png';
+      const fileText = 'This is a test file with an image: ![|100](folder/中%20文.png)';
+      const result = Util.getLocalImageZoomParams(imageUri, fileText);
+
+      expect(result.sizeMatchRegExp).toEqual( /\|(\d+)]\(folder\/中%20文\.png\)/);
+      expect(fileText.match(result.sizeMatchRegExp)[1]).toEqual("100");
+      expect(result.replaceSizeExist.getReplaceFromString(100)).toEqual("|100](folder/中%20文.png)");
+      expect(result.replaceSizeExist.getReplaceWithString(200)).toEqual("|200](folder/中%20文.png)");
+
+      const newFileText = fileText.replace(result.replaceSizeExist.getReplaceFromString(100), result.replaceSizeExist.getReplaceWithString(200));
+      expect(newFileText).toEqual('This is a test file with an image: ![|200](folder/中%20文.png)');
+    });
   });
 
   describe('getRemoteImageZoomParams', () => {
