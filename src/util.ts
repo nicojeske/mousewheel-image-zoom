@@ -55,7 +55,7 @@ export class Util {
      */
     public static getLocalImageNameFromUri(imageUri: string) {
         imageUri = decodeURI(imageUri);
-        const imageNameMatch = imageUri.match(/([^\/]+)$/);
+        const imageNameMatch = imageUri.match(/([^\/?\\]+)(\?.*?|)$/);
         const imageName = imageNameMatch ? imageNameMatch[1] : "";
 
         // Handle linux not correctly decoding the %2F before the Filename to a \
