@@ -1,4 +1,4 @@
-import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile} from 'obsidian';
+import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, WorkspaceWindow} from 'obsidian';
 import { Util, HandleZoomParams } from  "./src/util";
  
 
@@ -26,7 +26,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-        this.app.workspace.on("window-open", (newWindow) => this.registerEvents(newWindow.win));
+        this.app.workspace.on("window-open", (newWindow: WorkspaceWindow) => this.registerEvents(newWindow.win));
         this.registerEvents(window);
 
         this.addSettingTab(new MouseWheelZoomSettingsTab(this.app, this));
@@ -37,12 +37,13 @@ export default class MouseWheelZoomPlugin extends Plugin {
     /**
      * When the config key is released, we enable the scroll again and reset the key held down flag.
      */
-    onConfigKeyUp(currentWindow) {
+    onConfigKeyUp(currentWindow: Window) {
         this.isKeyHeldDown = false;
         this.enableScroll(currentWindow);
     }
-    onunload(currentWindow) {
-        // Re-enable the normal scrolling behaviour when the plugin unloads
+
+    onunload(currentWindow: Window = window) {
+        // Re-enable the normal scrolling behavior when the plugin unloads
         this.enableScroll(currentWindow);
     }
 
@@ -51,8 +52,8 @@ export default class MouseWheelZoomPlugin extends Plugin {
      * @param currentWindow window in which to register events
      * @private
      */
-    private registerEvents(currentWindow) {
-        const doc = currentWindow.document;
+    private registerEvents(currentWindow: Window) {
+        const doc: Document = currentWindow.document;
         this.registerDomEvent(doc, "keydown", (evt) => {
             if (evt.code === this.settings.modifierKey.toString()) {
                 this.isKeyHeldDown = true;
@@ -73,7 +74,8 @@ export default class MouseWheelZoomPlugin extends Plugin {
                     this.onConfigKeyUp(currentWindow);
                     return;
                 }
-                const eventTarget = evt.target;
+                const eventTarget: HTMLElement = evt.target as HTMLElement;
+
                 if (eventTarget.nodeName === "IMG") {
                     // Handle the zooming of the image
                     this.handleZoom(evt, eventTarget);
@@ -96,7 +98,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
         let fileText = await this.app.vault.read(activeFile)
         const originalFileText = fileText;
 
-        // Get paremeters like the regex or the replacement terms based on the fact if the image is locally stored or not.
+        // Get parameters like the regex or the replacement terms based on the fact if the image is locally stored or not.
         const zoomParams: HandleZoomParams = this.getZoomParams(imageUri, fileText, eventTarget);
 
         // Check if there is already a size parameter for this image.
@@ -176,24 +178,25 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
     // Utilities to disable and enable scrolling //
 
-    preventDefault(e: any) {
-        e.preventDefault();
+
+    preventDefault(ev: WheelEvent) {
+        ev.preventDefault();
     }
 
-    wheelOpt = {passive: false}
-    wheelEvent = 'wheel'
+    wheelOpt: AddEventListenerOptions = {passive: false}
+    wheelEvent = 'wheel' as keyof WindowEventMap;
 
     /**
      * Disables the normal scroll event
      */
-    disableScroll(currentWindow) {
+    disableScroll(currentWindow: Window) {
         currentWindow.addEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt);
     }
  
     /**
      * Enables the normal scroll event
      */
-    enableScroll(currentWindow) {
+    enableScroll(currentWindow: Window) {
         currentWindow.removeEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt);
     }
 
