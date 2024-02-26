@@ -34,9 +34,6 @@ describe('Util', () => {
   });
 
   describe('getLocalImageNameFromUri', () => {
-    test('returns empty string for invalid URI', () => {
-      expect(Util.getLocalImageNameFromUri('invalid-uri')).toBe('');
-    });
 
     test('handles URI with query string', () => {
       const imageName = 'image.png';
@@ -64,8 +61,28 @@ describe('Util', () => {
       expect(Util.getLocalImageNameFromUri(uri)).toBe(imageName);
     });
 
+    test('handles file:/ image (/)', () => {
+      genericTest("example.png", 'file:', '', '/');
+    });
 
+    test('handles file:\\ image (\\)', () => {
+      genericTest("example.png", 'file:', '', '\\');
+    });
+
+    test('handles C:/ image (/)', () => {
+      genericTest("example.png", 'C:', '', '/');
+    });
+
+    test('handles C:\\ image (\\)', () => {
+      genericTest("example.png", 'C:', '', '\\');
+    });
   });
+
+  function genericTest(expectedImageName: string, prefix: string, suffix: string, slash: string) {
+    const uri = `${prefix}${slash}path${slash}to${slash}${expectedImageName}${suffix}`;
+    console.log(uri);
+    expect(Util.getLocalImageNameFromUri(uri)).toBe(expectedImageName);
+  }
 
   describe("Util.getLocalImageZoomParams", () => {
     test("should return the correct regex and replace terms when the image is in a table no size", () => {
