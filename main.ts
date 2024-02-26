@@ -11,7 +11,10 @@ interface MouseWheelZoomSettings {
 enum ModifierKey {
     ALT = "AltLeft",
     CTRL = "ControlLeft",
-    SHIFT = "ShiftLeft"
+    SHIFT = "ShiftLeft",
+    ALT_RIGHT = "AltRight",
+    CTRL_RIGHT = "ControlRight",
+    SHIFT_RIGHT = "ShiftRight"
 }
 
 const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
@@ -201,12 +204,16 @@ export default class MouseWheelZoomPlugin extends Plugin {
     }
 
     private isConfiguredKeyDown(evt: WheelEvent): boolean {
+        console.log(evt.altKey, evt.ctrlKey, evt.shiftKey, this.settings.modifierKey)
         switch (this.settings.modifierKey) {
             case ModifierKey.ALT:
+            case ModifierKey.ALT_RIGHT:
                 return evt.altKey;
             case ModifierKey.CTRL:
+            case ModifierKey.CTRL_RIGHT:
                 return evt.ctrlKey;
             case ModifierKey.SHIFT:
+            case ModifierKey.SHIFT_RIGHT:
                 return evt.shiftKey;
         }
     }
@@ -237,6 +244,9 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
                 .addOption(ModifierKey.CTRL, "Ctrl")
                 .addOption(ModifierKey.ALT, "Alt")
                 .addOption(ModifierKey.SHIFT, "Shift")
+                .addOption(ModifierKey.CTRL_RIGHT, "Right Ctrl")
+                .addOption(ModifierKey.ALT_RIGHT, "Right Alt")
+                .addOption(ModifierKey.SHIFT_RIGHT, "Right Shift")
                 .setValue(this.plugin.settings.modifierKey)
                 .onChange(async (value) => {
                     this.plugin.settings.modifierKey = value as ModifierKey;
