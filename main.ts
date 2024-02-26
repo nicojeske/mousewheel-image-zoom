@@ -60,7 +60,11 @@ export default class MouseWheelZoomPlugin extends Plugin {
         this.registerDomEvent(doc, "keydown", (evt) => {
             if (evt.code === this.settings.modifierKey.toString()) {
                 this.isKeyHeldDown = true;
-                this.disableScroll(currentWindow);
+
+                if (this.settings.modifierKey !== ModifierKey.SHIFT && this.settings.modifierKey !== ModifierKey.SHIFT_RIGHT) { // Ignore shift to allow horizontal scrolling
+                    // Disable the normal scrolling behavior when the key is held down
+                    this.disableScroll(currentWindow);
+                }
             }
         });
         this.registerDomEvent(doc, "keyup", (evt) => {
