@@ -277,7 +277,7 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
                     .setValue(500)
                     .setLimits(0, 1000, 25)
                     .setDynamicTooltip()
-                    .setValue(this.plugin.settings.stepSize)
+                    .setValue(this.plugin.settings.initialSize)
                     .onChange(async (value) => {
                         this.plugin.settings.initialSize = value
                         await this.plugin.saveSettings()
