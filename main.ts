@@ -153,9 +153,6 @@ export default class MouseWheelZoomPlugin extends Plugin {
     private getZoomParams(imageUri: string, fileText: string, target: Element) {
        if (imageUri.contains("http")) {
            return Util.getRemoteImageZoomParams(imageUri, fileText)
-       } else if (imageUri.contains("app://")) {
-           const imageName = Util.getLocalImageNameFromUri(imageUri);
-           return Util.getLocalImageZoomParams(imageName, fileText)
        } else if (target.classList.value.match("excalidraw-svg.*")) {
            const src = target.attributes.getNamedItem("filesource").textContent;
            // remove ".md" from the end of the src
@@ -163,6 +160,9 @@ export default class MouseWheelZoomPlugin extends Plugin {
            // Only get text after "/"
            const imageNameAfterSlash = imageName.substring(imageName.lastIndexOf("/") + 1);
            return Util.getLocalImageZoomParams(imageNameAfterSlash, fileText)
+       } else if (imageUri.contains("app://")) {
+           const imageName = Util.getLocalImageNameFromUri(imageUri);
+           return Util.getLocalImageZoomParams(imageName, fileText)
        }
 
        throw new Error("Image is not zoomable")
