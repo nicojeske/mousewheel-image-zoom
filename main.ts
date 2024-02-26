@@ -26,38 +26,8 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-
-        this.registerDomEvent(document, "keydown", (evt: KeyboardEvent) => {
-            if (evt.code === this.settings.modifierKey.toString()) {
-                this.isKeyHeldDown = true
-                this.disableScroll()
-            }
-        })
-
-        this.registerDomEvent(document, "keyup", (evt: KeyboardEvent) => {
-            if (evt.code === this.settings.modifierKey.toString()) {
-                this.onConfigKeyUp();
-            }
-        })
-
-        this.registerDomEvent(document, "wheel", (evt: WheelEvent) => {
-            if (this.isKeyHeldDown) {
-
-                // When for example using Alt + Tab to switch between windows, the key is still recognized as held down.
-                // We check if the key is really held down by checking if the key is still pressed in the event when the
-                // wheel event is triggered.
-                if (!this.isConfiguredKeyDown(evt)) {
-                    this.onConfigKeyUp();
-                    return
-                }
-
-                const eventTarget = evt.target as Element;
-                if (eventTarget.nodeName === "IMG") {
-                    // Handle the zooming of the image
-                    this.handleZoom(evt, eventTarget);
-                }
-            }
-        })
+        this.app.workspace.on("window-open", (newWindow) => this.registerEvents(newWindow.win));
+        this.registerEvents(window);
 
         this.addSettingTab(new MouseWheelZoomSettingsTab(this.app, this));
 
@@ -67,14 +37,49 @@ export default class MouseWheelZoomPlugin extends Plugin {
     /**
      * When the config key is released, we enable the scroll again and reset the key held down flag.
      */
-    private onConfigKeyUp() {
-        this.isKeyHeldDown = false
-        this.enableScroll()
+    onConfigKeyUp(currentWindow) {
+        this.isKeyHeldDown = false;
+        this.enableScroll(currentWindow);
+    }
+    onunload(currentWindow) {
+        // Re-enable the normal scrolling behaviour when the plugin unloads
+        this.enableScroll(currentWindow);
     }
 
-    onunload() {
-        // Re-enable the normal scrolling behaviour when the plugin unloads
-        this.enableScroll()
+     /**
+     * Registers image resizing events for the specified window
+     * @param currentWindow window in which to register events
+     * @private
+     */
+    private registerEvents(currentWindow) {
+        const doc = currentWindow.document;
+        this.registerDomEvent(doc, "keydown", (evt) => {
+            if (evt.code === this.settings.modifierKey.toString()) {
+                this.isKeyHeldDown = true;
+                this.disableScroll(currentWindow);
+            }
+        });
+        this.registerDomEvent(doc, "keyup", (evt) => {
+            if (evt.code === this.settings.modifierKey.toString()) {
+                this.onConfigKeyUp(currentWindow);
+            }
+        });
+        this.registerDomEvent(doc, "wheel", (evt) => {
+            if (this.isKeyHeldDown) {
+                // When for example using Alt + Tab to switch between windows, the key is still recognized as held down.
+                // We check if the key is really held down by checking if the key is still pressed in the event when the
+                // wheel event is triggered.
+                if (!this.isConfiguredKeyDown(evt)) {
+                    this.onConfigKeyUp(currentWindow);
+                    return;
+                }
+                const eventTarget = evt.target;
+                if (eventTarget.nodeName === "IMG") {
+                    // Handle the zooming of the image
+                    this.handleZoom(evt, eventTarget);
+                }
+            }
+        });
     }
 
     /**
@@ -161,10 +166,6 @@ export default class MouseWheelZoomPlugin extends Plugin {
        throw new Error("Image is not zoomable")
     }
 
-    
-    
-
-
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
@@ -185,15 +186,15 @@ export default class MouseWheelZoomPlugin extends Plugin {
     /**
      * Disables the normal scroll event
      */
-    disableScroll() {
-        window.addEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt);
+    disableScroll(currentWindow) {
+        currentWindow.addEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt);
     }
-
+ 
     /**
      * Enables the normal scroll event
      */
-    enableScroll() {
-        window.removeEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt as any);
+    enableScroll(currentWindow) {
+        currentWindow.removeEventListener(this.wheelEvent, this.preventDefault, this.wheelOpt);
     }
 
     private isConfiguredKeyDown(evt: WheelEvent): boolean {
