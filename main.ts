@@ -208,7 +208,6 @@ export default class MouseWheelZoomPlugin extends Plugin {
     }
 
     private isConfiguredKeyDown(evt: WheelEvent): boolean {
-        console.log(evt.altKey, evt.ctrlKey, evt.shiftKey, this.settings.modifierKey)
         switch (this.settings.modifierKey) {
             case ModifierKey.ALT:
             case ModifierKey.ALT_RIGHT:
