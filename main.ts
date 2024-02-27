@@ -29,7 +29,9 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
     async onload() {
         await this.loadSettings();
-        this.app.workspace.on("window-open", (newWindow: WorkspaceWindow) => this.registerEvents(newWindow.win));
+        this.registerEvent(
+            this.app.workspace.on("window-open", (newWindow: WorkspaceWindow) => this.registerEvents(newWindow.win));
+        );
         this.registerEvents(window);
 
         this.addSettingTab(new MouseWheelZoomSettingsTab(this.app, this));
