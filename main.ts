@@ -83,15 +83,56 @@ export default class MouseWheelZoomPlugin extends Plugin {
                     this.onConfigKeyUp(currentWindow);
                     return;
                 }
-                const eventTarget: HTMLElement = evt.target as HTMLElement;
 
-                if (eventTarget.nodeName === "IMG") {
+                const eventTarget = evt.target;
+                if (eventTarget.hasClass("canvas-node-content-blocker")){
+                    // seems we're trying to zoom on some canvas node.                    
+                    this.handleZoomForCanvas(evt, eventTarget);
+                    
+                } 
+                else if (eventTarget.closest(".canvas-node-content")) {
+                    // we trying to resize focused canvas node.
+                    // i think here can be implementation of zoom images in embded markdown files on canvas. 
+                }
+                else if (eventTarget.nodeName === "IMG") {
                     // Handle the zooming of the image
                     this.handleZoom(evt, eventTarget);
                 }
             }
         });
     }
+
+     /**
+     * Handles zooming with the mousewheel on canvas node 
+     * @param evt wheel event
+     * @param eventTarget targeted canvas node element
+     * @private
+     */
+    handleZoomForCanvas(evt: WheelEvent, eventTarget: Element) {
+        // get active canvas
+        const isCanvas = app.workspace.activeLeaf.view?.getViewType() === "canvas";
+        if (!isCanvas) {
+            throw new Error("Can't find canvas");
+        };
+        const canvas = app.workspace.activeLeaf.view.canvas;
+        
+        // get triggerd canvasNode
+        const canvasNode = 
+            Array.from(canvas.nodes.values())
+            .find(node => node.contentBlockerEl == eventTarget);
+                
+        // Adjust delta based on the direction of the resize
+        let delta = evt.deltaY > 0 ? this.settings.stepSize : this.settings.stepSize * -1;
+
+        // Calculate new dimensions directly using the delta and aspectRatio
+        const aspectRatio = canvasNode.width / canvasNode.height;
+        const newWidth = canvasNode.width + delta;
+        const newHeight = newWidth / aspectRatio;
+
+        // Resize the canvas node using the new dimensions
+        canvasNode.resize({width: newWidth, height: newHeight});
+    }
+
 
     /**
      * Handles zooming with the mousewheel on an image
@@ -192,7 +233,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
         ev.preventDefault();
     }
 
-    wheelOpt: AddEventListenerOptions = {passive: false}
+    wheelOpt: AddEventListenerOptions = {passive: false, capture: true }
     wheelEvent = 'wheel' as keyof WindowEventMap;
 
     /**
