@@ -85,16 +85,24 @@ export default class MouseWheelZoomPlugin extends Plugin {
                 }
 
                 const eventTarget = evt.target as Element;
-                if (eventTarget.hasClass("canvas-node-content-blocker")){
+                
+                const targetIsCanvas: boolean = eventTarget.hasClass("canvas-node-content-blocker")
+                const targetIsCanvasNode: boolean = eventTarget.closest(".canvas-node-content") !== null;
+                const targetIsImage: boolean = eventTarget.nodeName === "IMG";
+
+                if (targetIsCanvas || targetIsCanvasNode || targetIsImage) {
+                    this.disableScroll(currentWindow);
+                }
+
+                if (targetIsCanvas){                  
                     // seems we're trying to zoom on some canvas node.                    
                     this.handleZoomForCanvas(evt, eventTarget);
-                    
                 } 
-                else if (eventTarget.closest(".canvas-node-content")) {
+                else if (targetIsCanvasNode) {
                     // we trying to resize focused canvas node.
                     // i think here can be implementation of zoom images in embded markdown files on canvas. 
                 }
-                else if (eventTarget.nodeName === "IMG") {
+                else if (targetIsImage) {
                     // Handle the zooming of the image
                     this.handleZoom(evt, eventTarget);
                 }
