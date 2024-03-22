@@ -1,4 +1,4 @@
-import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, WorkspaceWindow} from 'obsidian';
+import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, WorkspaceWindow, View} from 'obsidian';
 import { Util, HandleZoomParams } from  "./src/util";
  
 
@@ -83,15 +83,65 @@ export default class MouseWheelZoomPlugin extends Plugin {
                     this.onConfigKeyUp(currentWindow);
                     return;
                 }
-                const eventTarget: HTMLElement = evt.target as HTMLElement;
 
-                if (eventTarget.nodeName === "IMG") {
+                const eventTarget = evt.target as Element;
+                
+                const targetIsCanvas: boolean = eventTarget.hasClass("canvas-node-content-blocker")
+                const targetIsCanvasNode: boolean = eventTarget.closest(".canvas-node-content") !== null;
+                const targetIsImage: boolean = eventTarget.nodeName === "IMG";
+
+                if (targetIsCanvas || targetIsCanvasNode || targetIsImage) {
+                    this.disableScroll(currentWindow);
+                }
+
+                if (targetIsCanvas){                  
+                    // seems we're trying to zoom on some canvas node.                    
+                    this.handleZoomForCanvas(evt, eventTarget);
+                } 
+                else if (targetIsCanvasNode) {
+                    // we trying to resize focused canvas node.
+                    // i think here can be implementation of zoom images in embded markdown files on canvas. 
+                }
+                else if (targetIsImage) {
                     // Handle the zooming of the image
                     this.handleZoom(evt, eventTarget);
                 }
             }
         });
     }
+
+     /**
+     * Handles zooming with the mousewheel on canvas node 
+     * @param evt wheel event
+     * @param eventTarget targeted canvas node element
+     * @private
+     */
+    handleZoomForCanvas(evt: WheelEvent, eventTarget: Element) {
+        // get active canvas
+        const isCanvas: boolean = this.app.workspace.getActiveViewOfType(View).getViewType() === "canvas";
+        if (!isCanvas) {
+            throw new Error("Can't find canvas");
+        };
+        // Unfortunately the current type definitions don't include any canvas functionality...
+        const canvas = (this.app.workspace.getActiveViewOfType(View) as any).canvas;
+        
+        // get triggered canvasNode
+        const canvasNode = 
+            Array.from(canvas.nodes.values())
+            .find(node => (node as any).contentBlockerEl == eventTarget) as any;
+                
+        // Adjust delta based on the direction of the resize
+        let delta = evt.deltaY > 0 ? this.settings.stepSize : this.settings.stepSize * -1;
+
+        // Calculate new dimensions directly using the delta and aspectRatio
+        const aspectRatio = canvasNode.width / canvasNode.height;
+        const newWidth = canvasNode.width + delta;
+        const newHeight = newWidth / aspectRatio;
+
+        // Resize the canvas node using the new dimensions
+        canvasNode.resize({width: newWidth, height: newHeight});
+    }
+
 
     /**
      * Handles zooming with the mousewheel on an image
@@ -192,7 +242,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
         ev.preventDefault();
     }
 
-    wheelOpt: AddEventListenerOptions = {passive: false}
+    wheelOpt: AddEventListenerOptions = {passive: false, capture: true }
     wheelEvent = 'wheel' as keyof WindowEventMap;
 
     /**
