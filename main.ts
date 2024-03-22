@@ -1,4 +1,4 @@
-import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, WorkspaceWindow} from 'obsidian';
+import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, WorkspaceWindow, View} from 'obsidian';
 import { Util, HandleZoomParams } from  "./src/util";
  
 
@@ -84,7 +84,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
                     return;
                 }
 
-                const eventTarget = evt.target;
+                const eventTarget = evt.target as Element;
                 if (eventTarget.hasClass("canvas-node-content-blocker")){
                     // seems we're trying to zoom on some canvas node.                    
                     this.handleZoomForCanvas(evt, eventTarget);
@@ -110,16 +110,17 @@ export default class MouseWheelZoomPlugin extends Plugin {
      */
     handleZoomForCanvas(evt: WheelEvent, eventTarget: Element) {
         // get active canvas
-        const isCanvas = app.workspace.activeLeaf.view?.getViewType() === "canvas";
+        const isCanvas: boolean = this.app.workspace.getActiveViewOfType(View).getViewType() === "canvas";
         if (!isCanvas) {
             throw new Error("Can't find canvas");
         };
-        const canvas = app.workspace.activeLeaf.view.canvas;
+        // Unfortunately the current type definitions don't include any canvas functionality...
+        const canvas = (this.app.workspace.getActiveViewOfType(View) as any).canvas;
         
-        // get triggerd canvasNode
+        // get triggered canvasNode
         const canvasNode = 
             Array.from(canvas.nodes.values())
-            .find(node => node.contentBlockerEl == eventTarget);
+            .find(node => (node as any).contentBlockerEl == eventTarget) as any;
                 
         // Adjust delta based on the direction of the resize
         let delta = evt.deltaY > 0 ? this.settings.stepSize : this.settings.stepSize * -1;
