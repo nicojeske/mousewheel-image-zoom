@@ -342,7 +342,7 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
             })
 
         new Setting(containerEl)
-            .setName('Resize in zoom')
+            .setName('Resize in canvas')
             .setDesc('When enabled, all nodes on the Obsidian canvas can also be resized using the Modifier key')
             .addToggle((toggle) => {
 				toggle.setValue(this.plugin.settings.resizeInCanvas)
