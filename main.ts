@@ -6,6 +6,7 @@ interface MouseWheelZoomSettings {
     initialSize: number;
     modifierKey: ModifierKey;
     stepSize: number;
+    resizeInCanvas: boolean;
 }
 
 enum ModifierKey {
@@ -20,7 +21,8 @@ enum ModifierKey {
 const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
     modifierKey: ModifierKey.ALT,
     stepSize: 25,
-    initialSize: 500
+    initialSize: 500,
+    resizeInCanvas: false,
 }
 
 export default class MouseWheelZoomPlugin extends Plugin {
@@ -94,7 +96,7 @@ export default class MouseWheelZoomPlugin extends Plugin {
                     this.disableScroll(currentWindow);
                 }
 
-                if (targetIsCanvas){                  
+                if (targetIsCanvas && this.settings.resizeInCanvas){                  
                     // seems we're trying to zoom on some canvas node.                    
                     this.handleZoomForCanvas(evt, eventTarget);
                 } 
@@ -338,6 +340,17 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
                         await this.plugin.saveSettings()
                     })
             })
+
+        new Setting(containerEl)
+            .setName('Resize in zoom')
+            .setDesc('When enabled, all nodes on the Obsidian canvas can also be resized using the Modifier key')
+            .addToggle((toggle) => {
+				toggle.setValue(this.plugin.settings.resizeInCanvas)
+					.onChange(async (value) => {
+						this.plugin.settings.resizeInCanvas = value;
+						await this.plugin.saveSettings();
+					});
+			});
     }
 }
 
