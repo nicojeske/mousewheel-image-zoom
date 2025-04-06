@@ -211,34 +211,49 @@ export default class MouseWheelZoomPlugin extends Plugin {
         const activeFile: TFile = await this.getActivePaneWithImage(eventTarget);
 
         await this.app.vault.process(activeFile, (fileText) => {
-            // Get parameters like the regex or the replacement terms based on the fact if the image is locally stored or not.
-            const zoomParams: HandleZoomParams = this.getZoomParams(imageUri, fileText, eventTarget);
-    
-            // Check if there is already a size parameter for this image.
-            const sizeMatches = fileText.match(zoomParams.sizeMatchRegExp);
-    
-            // Element already has a size entry
+            let frontmatter = "";
+            let body = fileText;
+            const frontmatterRegex = /^---\s*([\s\S]*?)\s*---\n*/;
+            const match = fileText.match(frontmatterRegex);
+
+            if (match) {
+                frontmatter = match[0]; // Keep the full matched frontmatter block including delimiters and trailing newline
+                body = fileText.slice(frontmatter.length); // The rest is the body
+            }
+
+
+            const zoomParams: HandleZoomParams = this.getZoomParams(imageUri, body, eventTarget);
+
+            // Perform replacements ONLY on the body
+            let modifiedBody = body;
+            const sizeMatches = body.match(zoomParams.sizeMatchRegExp);
+
+            // Element already has a size entry in the body
             if (sizeMatches !== null) {
                 const oldSize: number = parseInt(sizeMatches[1]);
                 let newSize: number = oldSize;
                 if (evt.deltaY < 0) {
-                    newSize += this.settings.stepSize
+                    newSize += this.settings.stepSize;
                 } else if (evt.deltaY > 0 && newSize > this.settings.stepSize) {
-                    newSize -= this.settings.stepSize
+                    newSize -= this.settings.stepSize;
                 }
-    
-                fileText = fileText.replace(zoomParams.replaceSizeExist.getReplaceFromString(oldSize), zoomParams.replaceSizeExist.getReplaceWithString(newSize));
-            } else { // Element has no size entry -> give it an initial size
-                const initialSize = this.settings.initialSize
+                // Replace within the body
+                modifiedBody = body.replace(zoomParams.replaceSizeExist.getReplaceFromString(oldSize), zoomParams.replaceSizeExist.getReplaceWithString(newSize));
+
+            } else { // Element has no size entry in the body -> give it an initial size
+                const initialSize = this.settings.initialSize;
                 const image = new Image();
                 image.src = imageUri;
-                var width = image.naturalWidth;
-                var minWidth = Math.min(width, initialSize);
-                fileText = fileText.replace(zoomParams.replaceSizeNotExist.getReplaceFromString(0), zoomParams.replaceSizeNotExist.getReplaceWithString(minWidth));
+                const width = image.naturalWidth || initialSize;
+                const minWidth = Math.min(width, initialSize);
+
+                // Replace within the body
+                modifiedBody = body.replace(zoomParams.replaceSizeNotExist.getReplaceFromString(0), zoomParams.replaceSizeNotExist.getReplaceWithString(minWidth));
             }
-    
-            return fileText;
-        })
+
+            // Combine original frontmatter with the modified body
+            return frontmatter + modifiedBody;
+        });
     }
 
 
