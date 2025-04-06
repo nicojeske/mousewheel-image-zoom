@@ -85,16 +85,14 @@ export class Util {
         // Separator to use for the regex: isInTable ? \\\| : \|
         const regexSeparator = isInTable ? "\\\\\\|" : "\\|"
 
-
-
-        const imageAttributes = this.getImageAttributes(imageName, fileText);
-        imageName = `${imageName}${imageAttributes}`;
-
         // check character before the imageName to check if markdown link or obsidian link
         const imageNamePosition = fileText.indexOf(imageName);
         const isObsidianLink = fileText.charAt(imageNamePosition - 1) === "["
 
+
         if (isObsidianLink) {
+            const imageAttributes = this.getImageAttributes(imageName, fileText);
+            imageName = `${imageName}${imageAttributes}`;
             return Util.generateReplaceTermForObsidianSyntax(imageName, regexSeparator, sizeSeparator);
         } else {
             return Util.generateReplaceTermForMarkdownSyntax(imageName, regexSeparator, sizeSeparator, fileText);
