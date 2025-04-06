@@ -63,6 +63,12 @@ export default class MouseWheelZoomPlugin extends Plugin {
         const doc: Document = currentWindow.document;
         this.registerDomEvent(doc, "keydown", (evt) => {
             if (evt.code === this.settings.modifierKey.toString()) {
+                // When canvas mode is enabled we just ignore the keydown event if the canvas is active
+                const isActiveViewCanvas = this.app.workspace.getActiveViewOfType(View)?.getViewType() === "canvas";
+                if (isActiveViewCanvas && !this.settings.resizeInCanvas) {
+                    return;
+                }
+
                 this.isKeyHeldDown = true;
 
                 if (this.settings.modifierKey !== ModifierKey.SHIFT && this.settings.modifierKey !== ModifierKey.SHIFT_RIGHT) { // Ignore shift to allow horizontal scrolling
