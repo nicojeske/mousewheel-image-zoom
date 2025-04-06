@@ -1,4 +1,4 @@
-import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, WorkspaceWindow, View} from 'obsidian';
+import {App, MarkdownView, Plugin, PluginSettingTab, Setting, TFile, WorkspaceWindow, View, Notice} from 'obsidian';
 import { Util, HandleZoomParams } from  "./src/util";
  
 
@@ -25,6 +25,9 @@ const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
     resizeInCanvas: true,
 }
 
+const CtrlCanvasConflictWarning = "Warning: Using Ctrl as the modifier key conflicts with default canvas zooming behavior when 'Resize in canvas' is enabled. Consider using another modifier key or disabling 'Resize in canvas'.";
+ 
+
 export default class MouseWheelZoomPlugin extends Plugin {
     settings: MouseWheelZoomSettings;
     isKeyHeldDown = false;
@@ -39,7 +42,52 @@ export default class MouseWheelZoomPlugin extends Plugin {
         this.addSettingTab(new MouseWheelZoomSettingsTab(this.app, this));
 
         console.log("Loaded: Mousewheel image zoom")
+
+        this.checkExistingUserConflict();
     }
+
+    checkExistingUserConflict() {
+        const noticeShownKey = 'mousewheel-zoom-ctrl-warning-shown'; // Key for localStorage flag
+        const isCtrl = this.settings.modifierKey === ModifierKey.CTRL || this.settings.modifierKey === ModifierKey.CTRL_RIGHT;
+
+
+        // Only show the notice if the conflict exists AND the user hasn't dismissed it before (using localStorage flag)
+        if (isCtrl && this.settings.resizeInCanvas && !localStorage.getItem(noticeShownKey)) {
+                const fragment = document.createDocumentFragment();
+
+                const titleEl = document.createElement('strong');
+                titleEl.textContent = "Mousewheel Image Zoom";
+                fragment.appendChild(titleEl);
+
+                fragment.appendChild(document.createElement('br'));
+
+                const messageEl = document.createElement('span');
+                messageEl.textContent = CtrlCanvasConflictWarning;
+                fragment.appendChild(messageEl);
+
+                fragment.appendChild(document.createElement('br'));
+
+                const settingsButton = document.createElement('button');
+                settingsButton.textContent = "Open Settings";
+                settingsButton.style.marginTop = "5px";
+                settingsButton.onclick = () => {
+                    // settings is a private property of the app object, so we need to cast it to any to access it
+                    // See https://forum.obsidian.md/t/open-settings-for-my-plugin-community-plugin-settings-deeplink/61563/4
+                    const setting = (this.app as any).setting;
+                    setting.open();
+                    setting.openTabById(this.manifest.id);
+                };
+                fragment.appendChild(settingsButton);
+
+
+                const notice = new Notice(fragment, 0);
+
+                 // Set the flag in localStorage so the notice doesn't appear again
+                 // unless the user clears their localStorage or the key changes.
+                 localStorage.setItem(noticeShownKey, 'true');
+        }
+    }
+
 
     /**
      * When the config key is released, we enable the scroll again and reset the key held down flag.
@@ -294,10 +342,9 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
 
         const isCtrl = modifierKey === ModifierKey.CTRL || modifierKey === ModifierKey.CTRL_RIGHT;
         const conflict = isCtrl && resizeInCanvas;
-        const conflictMessage = "Warning: Using Ctrl as the modifier key conflicts with default canvas zooming behavior when 'Resize in canvas' is enabled. Consider using another modifier key or disabling 'Resize in canvas'.";
 
         if (conflict) {
-            this.warningEl.setText(conflictMessage);
+            this.warningEl.setText(CtrlCanvasConflictWarning);
             this.warningEl.style.display = 'block'; 
             this.warningEl.style.color = 'var(--text-warning)';
              this.warningEl.style.marginTop = '10px'; 
@@ -376,6 +423,7 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
 
         this.warningEl = containerEl.createDiv({ cls: 'mousewheel-zoom-warning' });
         this.warningEl.style.display = 'none';
+        this.updateWarningMessage(this.plugin.settings.modifierKey, this.plugin.settings.resizeInCanvas);
     
     }
 }
