@@ -22,7 +22,7 @@ const DEFAULT_SETTINGS: MouseWheelZoomSettings = {
     modifierKey: ModifierKey.ALT,
     stepSize: 25,
     initialSize: 500,
-    resizeInCanvas: false,
+    resizeInCanvas: true,
 }
 
 export default class MouseWheelZoomPlugin extends Plugin {
@@ -281,10 +281,30 @@ export default class MouseWheelZoomPlugin extends Plugin {
 
 class MouseWheelZoomSettingsTab extends PluginSettingTab {
     plugin: MouseWheelZoomPlugin;
+    warningEl: HTMLDivElement;
 
     constructor(app: App, plugin: MouseWheelZoomPlugin) {
         super(app, plugin);
         this.plugin = plugin;
+    }
+
+    // Helper function to update the warning message
+    updateWarningMessage(modifierKey: ModifierKey, resizeInCanvas: boolean): void {
+        if (!this.warningEl) return;
+
+        const isCtrl = modifierKey === ModifierKey.CTRL || modifierKey === ModifierKey.CTRL_RIGHT;
+        const conflict = isCtrl && resizeInCanvas;
+        const conflictMessage = "Warning: Using Ctrl as the modifier key conflicts with default canvas zooming behavior when 'Resize in canvas' is enabled. Consider using another modifier key or disabling 'Resize in canvas'.";
+
+        if (conflict) {
+            this.warningEl.setText(conflictMessage);
+            this.warningEl.style.display = 'block'; 
+            this.warningEl.style.color = 'var(--text-warning)';
+             this.warningEl.style.marginTop = '10px'; 
+        } else {
+            this.warningEl.setText(""); 
+            this.warningEl.style.display = 'none'; 
+        }
     }
 
     display(): void {
@@ -293,7 +313,6 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
         containerEl.empty();
 
         containerEl.createEl('h2', {text: 'Settings for mousewheel zoom'});
-
 
         new Setting(containerEl)
             .setName('Trigger Key')
@@ -308,6 +327,7 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
                 .setValue(this.plugin.settings.modifierKey)
                 .onChange(async (value) => {
                     this.plugin.settings.modifierKey = value as ModifierKey;
+                    this.updateWarningMessage(this.plugin.settings.modifierKey , this.plugin.settings.resizeInCanvas);
                     await this.plugin.saveSettings()
                 })
             );
@@ -349,9 +369,14 @@ class MouseWheelZoomSettingsTab extends PluginSettingTab {
 				toggle.setValue(this.plugin.settings.resizeInCanvas)
 					.onChange(async (value) => {
 						this.plugin.settings.resizeInCanvas = value;
+                        this.updateWarningMessage(this.plugin.settings.modifierKey, value);
 						await this.plugin.saveSettings();
 					});
 			});
+
+        this.warningEl = containerEl.createDiv({ cls: 'mousewheel-zoom-warning' });
+        this.warningEl.style.display = 'none';
+    
     }
 }
 
