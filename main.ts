@@ -164,6 +164,12 @@ export default class MouseWheelZoomPlugin extends Plugin {
                 }
             }
         });
+         this.registerDomEvent(currentWindow, "blur", () => {
+             // When the window loses focus, ensure scrolling is re-enabled for this window
+             // and reset the key held state defensively, although the keyup should ideally handle it.
+             this.isKeyHeldDown = false;
+             this.enableScroll(currentWindow);
+         });
     }
 
      /**
