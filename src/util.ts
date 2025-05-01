@@ -43,7 +43,7 @@ export class Util {
          * @private
          */
     public static isInTable(searchString: string, fileValue: string) {
-        return fileValue.search(new RegExp(`^\\|.+${searchString}.+\\|$`, "m")) !== -1
+        return fileValue.search(new RegExp(`^\\|.+${escapeRegex(searchString)}.+\\|$`, "m")) !== -1
     }
 
 
