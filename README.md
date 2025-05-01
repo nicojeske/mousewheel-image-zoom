@@ -6,3 +6,11 @@ left alt), hovering over an image in preview mode and scrolling.
 
 ## How to install
 - Simple install using the obsidian community plugins browser
+
+## Development
+
+```bash
+npm i # install dependencies
+npm run dev # generate main.js
+npm run test # use jest to test
+```
